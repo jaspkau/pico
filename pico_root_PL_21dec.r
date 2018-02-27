@@ -378,6 +378,8 @@ p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
   theme(legend.text = element_text(face = "italic")) + guides(fill = guide_legend(reverse=TRUE))+ scale_y_continuous(labels = percent_format())
 p$data$variable = factor(p$data$variable, ordered = TRUE, levels = who)
 p
+
+
 # Realtive abundance plots at Family level ------------------------------------------------
 
 d_f = tax_glom(d_r, taxrank = "Family")
