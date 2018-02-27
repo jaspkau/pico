@@ -14,7 +14,6 @@ library(adespatial)
 library(phyloseq)
 library(metagenomeSeq)
 library(mixOmics)
-library(sjPlot)
 
 # Make phyloseq object ----------------------------------------------------
 
