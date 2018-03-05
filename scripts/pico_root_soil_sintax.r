@@ -94,14 +94,58 @@ d_r
 
 ####scale envt data according to above sample selection
 met2 = data.frame(sample_data(d_r))
-env_met = met2[,cbind(1,2,3,4,5,6,7,52,53)]
-env = met2[,8:51]
+env_met = met2[,cbind(1,2,3,4,5,6,7,38,39)]
+env = met2[,8:37]
 env = scale(env)
 met3 = merge(env_met, env, by = "row.names")
 row.names(met3) = met3$Row.names
 
 d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
 d_r
+
+# Alpha diversity ---------------------------------------------------------
+
+temp = estimate_richness(d_r)
+temp = merge(met, temp, by = "row.names")
+p =  ggplot(temp, aes(Population, Chao1))+ geom_point() + theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+a = summary(aov(Observed ~ Population, data = temp))
+a
+a = summary(aov(Simpson ~ Population, data = temp))
+a
+a = summary(aov(Shannon ~ Population, data = temp))
+a
+a = summary(aov(Observed ~ Year, data = temp))
+a
+a = summary(aov(Simpson ~ Year, data = temp))
+a
+a = summary(aov(Shannon ~ Year, data = temp))
+a
+
+
+# Environmnetal data comparisons ------------------------------------------
+
+a = summary(aov(Observed ~ Population, data = temp))
+a
+
+##final will store final results
+
+final = c()
+for(i in 8:31){
+  column = names(met2[i])
+  f = anova(aov(met2[,i]~ Population, data=met2))$"F value"
+  av = anova(aov(met2[,i]~ Population, data=met2))$"Pr(>F)"
+  results = data.frame(otu = paste(column), F.value = paste(f), Pr..F. = paste(av))
+  final = rbind(final, results)
+} 
+
+write.csv(final, file='q1_table.csv')
+
+p = ggplot(met2, aes(Population, pg.rh)) + geom_point(aes(color = Month)) + facet_grid(~Year)
+p
+
+##need to find variables which can dicriminate between groups
 
 # Beta diversity with bray ------------------------------------------------
 library(vegan)
@@ -321,9 +365,10 @@ d_f = merge_samples(d_r, "pop.year")
 gen_f = data.frame(otu_table(d_f))
 gen_f = t(gen_f)
 gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
-#gen_f$rank = as.character(gen_f$Family)
+gen_f$rank = as.character(gen_f$Row.names)
+gen_f$rank = paste(as.character(gen_f$Row.names), "_", gen_f$Family)
 list = as.character(gen_f$rank)
-#list = paste(list, "_", rep(1:length(list)), sep = "")
+list = paste(list, "_", rep(1:length(list)), sep = "")
 gen_f = gen_f[,-1]
 drops <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "rank")
 gen_f = gen_f[ , !(names(gen_f) %in% drops)]
@@ -367,7 +412,6 @@ gen_f$rank = ifelse(gen_f$Phylum == "unidentified", paste(as.character(gen_f$Kin
 gen_f$rank = ifelse(gen_f$Phylum != "unidentified" &  gen_f$Class == "unidentified", paste(as.character(gen_f$Phylum), as.character(gen_f$Class), sep = ";"), gen_f$rank)
 gen_f$rank = ifelse(gen_f$Class != "unidentified" &  gen_f$Order == "unidentified", paste(as.character(gen_f$Class), as.character(gen_f$Order), sep = ";"), gen_f$rank)
 gen_f$rank = ifelse(gen_f$Order != "unidentified" &  gen_f$Family == "unidentified", paste(as.character(gen_f$Order), as.character(gen_f$Family), sep = ";"), gen_f$rank)
-#gen_f$rank = paste(as.character(gen_f$Row.names), "_", gen_f$Family)
 list = as.character(gen_f$rank)
 list = paste(list, "_", rep(1:length(list)), sep = "")
 gen_f = gen_f[,-1]
@@ -402,8 +446,7 @@ p
 
 ###......................................................
 
-###SOIL OMF ANALYSIS......................................
-# Soil OMF ----------------------------------------------------------------
+# Soil: Analyses of total dungal community ----------------------------------------------------------------
 
 ###create soil phyloseq object
 
@@ -416,8 +459,8 @@ d_s
 
 ####scale envt data according to above sample selection
 met4 = as.data.frame(sample_data(d_s))
-s_env_met = met4[,cbind(1,2,3,4,5,6,7,52,53)]
-s_env = met4[,8:51]
+s_env_met = met4[,cbind(1,2,3,4,5,6,7,38,39)]
+s_env = met4[,8:37]
 s_env = scale(s_env)
 met5 = merge(s_env_met, s_env, by = "row.names")
 row.names(met5) = met5$Row.names
@@ -622,15 +665,20 @@ mrm.soil = lm(dist_w_py ~ dist(my.soil2))
 summary(mrm.soil)$adj.r.squared
 
 # Realtive abundance plots ------------------------------------------------
-#d_f = tax_glom(d_r, taxrank = "Family")
-d_f = merge_samples(d_s, "int")
+d_f = tax_glom(d_s, taxrank = "Family")
+d_f = merge_samples(d_f, "int")
 gen_f = data.frame(otu_table(d_f))
 gen_f = t(gen_f)
 gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
-gen_f$rank = paste(as.character(gen_f$Row.names), "_", gen_f$Family)
 #gen_f$rank = paste(gen_f$Family)
+gen_f$rank = as.character(gen_f$Family)
+#gen_f$rank = paste(as.character(gen_f$Row.names), "_", gen_f$Family)
+gen_f$rank = ifelse(gen_f$Phylum == "unidentified", paste(as.character(gen_f$Kingdom), as.character(gen_f$Phylum), sep = ";"), gen_f$rank)
+gen_f$rank = ifelse(gen_f$Phylum != "unidentified" &  gen_f$Class == "unidentified", paste(as.character(gen_f$Phylum), as.character(gen_f$Class), sep = ";"), gen_f$rank)
+gen_f$rank = ifelse(gen_f$Class != "unidentified" &  gen_f$Order == "unidentified", paste(as.character(gen_f$Class), as.character(gen_f$Order), sep = ";"), gen_f$rank)
+gen_f$rank = ifelse(gen_f$Order != "unidentified" &  gen_f$Family == "unidentified", paste(as.character(gen_f$Order), as.character(gen_f$Family), sep = ";"), gen_f$rank)
 list = as.character(gen_f$rank)
-#list = paste(list, "_", rep(1:length(list)), sep = "")
+list = paste(list, "_", rep(1:length(list)), sep = "")
 gen_f = gen_f[,-1]
 drops <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "rank")
 gen_f = gen_f[ , !(names(gen_f) %in% drops)]
@@ -661,10 +709,7 @@ p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
 p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
 p
 
-###......................................................
-
-###SOIL OMF ANALYSIS WITH OTUs identified in ROOTS......................................
-# Soil OMF ----------------------------------------------------------------
+# ###SOIL OMF ANALYSIS WITH OTUs identified in ROOTS ----------------------------------------------------------------
 
 dr = data.frame(otu_table(d_r))
 dr = t(dr)
@@ -933,15 +978,7 @@ summary(mrm.env)$adj.r.squared
 mrm.soil = lm(dist_w_py ~ dist(my.soil2))
 summary(mrm.soil)$adj.r.squared
 
-###......................................................
-
-###......................................................
-
-###SOIL OMF ANALYSIS WITH 30 MOST abundant root OTUS......................................
-###......................................................
-
-###SOIL OMF ANALYSIS WITH 30 MOST abundant root OTUS......................................
-# Soil OMF ----------------------------------------------------------------
+# ###SOIL OMF ANALYSIS WITH 30 MOST abundant root OTUS----------------------------------------------------------------
 
 d_f = merge_samples(d_r, "Population")
 gen_f = data.frame(otu_table(d_f))
