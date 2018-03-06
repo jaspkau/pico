@@ -87,15 +87,13 @@ d_r = subset_samples(d, Source == "R")
 d_r
 d_r = subset_samples(d_r, Month == "Feb"| Month == "Apr")
 d_r
-#d_r = subset_samples(d_r, Population == "PLF"| Population == "PLE" | Population == "PNPS")
-d_r
 d_r = prune_taxa(taxa_sums(d_r) >= 1, d_r)
 d_r
 
 ####scale envt data according to above sample selection
 met2 = data.frame(sample_data(d_r))
-env_met = met2[,cbind(1,2,3,4,5,6,7,38,39)]
-env = met2[,8:37]
+env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,40,41)]
+env = met2[,10:39]
 env = scale(env)
 met3 = merge(env_met, env, by = "row.names")
 row.names(met3) = met3$Row.names
@@ -126,8 +124,7 @@ a
 
 # Environmnetal data comparisons ------------------------------------------
 
-a = summary(aov(Observed ~ Population, data = temp))
-a
+require(partykit)
 
 ##final will store final results
 
@@ -146,6 +143,85 @@ p = ggplot(met2, aes(Population, pg.rh)) + geom_point(aes(color = Month)) + face
 p
 
 ##need to find variables which can dicriminate between groups
+
+soil <- as.data.frame(read_excel("data/met.xlsx", sheet = 2))
+
+fit <- rpart(Population ~ OM + P1 + P2 + PH +	K +	MG + CA +	
+               CEC	+ K_PCT +	MG_PCT + CA_PCT	+ NA_PCT + NO3_N +
+               S + ZN	+ MN + FE +	CU + B +	S__SALTS
+             + SAND + SILT + CLAY, method="class",
+             data = soil)
+
+printcp(fit) # display the results 
+plotcp(fit) # visualize cross-validation results 
+summary(fit) # detailed summary of splits
+
+# plot tree 
+plot(fit, uniform=TRUE, 
+     main="Classification Tree")
+text(fit, use.n=TRUE, all=TRUE, cex=.8)
+
+###environmental data
+
+env <- as.data.frame(read_excel("data/met.xlsx", sheet = 3))
+
+library(lme4)
+install.packages("lmerTest")
+library(lmerTest)
+
+model = lmer(atemp ~ Population + (1|month),
+             data=env,
+             REML=TRUE)
+
+anova(model)
+
+fit = aov(atemp ~ Population + Error(month), data=env)
+summary(fit)
+
+fit = aov(stemp ~ Population + Error(month), data=env)
+summary(fit)
+
+fit = aov(rf ~ Population + Error(month), data=env)
+summary(fit)
+
+
+a = summary(aov(atemp ~ Pop_size, data = env))
+a
+a = summary(aov(stemp ~ Pop_size, data = env))
+a
+a = summary(aov(rf ~ Pop_size, data = env))
+a
+a = summary(aov(rh ~ Pop_size, data = env))
+a
+
+a = summary(aov(atemp ~ Demo, data = env))
+a
+a = summary(aov(stemp ~ Demo, data = env))
+a
+a = summary(aov(rf ~ Demo, data = env))
+a
+a = summary(aov(rh ~ Demo, data = env))
+a
+
+a = summary(aov(atemp ~ Population, data = env))
+a
+a = summary(aov(stemp ~ Population, data = env))
+a
+a = summary(aov(rf ~ Population, data = env))
+a
+a = summary(aov(rh ~ Population, data = env))
+a
+
+fit <- rpart(Demo ~ atemp + rh + stemp + rf, method="class",
+             data = env)
+
+printcp(fit)
+plotcp(fit)
+summary(fit)
+
+plot(fit, uniform=TRUE, 
+     main="Classification Tree")
+text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
 # Beta diversity with bray ------------------------------------------------
 library(vegan)
@@ -172,9 +248,9 @@ a = adonis(dist_w ~ as.factor(sample_data(d3)$Month), permutations = 999)
 a
 a = adonis(dist_w ~ as.factor(sample_data(d3)$Year), permutations = 999)
 a
-a = adonis(dist_w ~ sample_data(d3)$pop.year, permutations = 999)
+a = adonis(dist_w ~ as.factor(sample_data(d3)$Pop_size), permutations = 999)
 a
-a = adonis(dist_w ~ as.factor(sample_data(d3)$int), permutations = 999)
+a = adonis(dist_w ~ as.factor(sample_data(d3)$Demo), permutations = 999)
 a
 
 ###Do the hierarchial clustering by compressing the
