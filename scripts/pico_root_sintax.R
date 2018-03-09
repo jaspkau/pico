@@ -1,6 +1,6 @@
 setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
-setwd("C://Users//jaspr//Google Drive//Metagenomics//pprec_july2017")
+setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico (1)/")
 
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/uclust_97%")
@@ -55,8 +55,10 @@ tax2 = tax_table(as.matrix(tax2))
 library(readxl)
 met <- as.data.frame(read_excel("data/met.xlsx", sheet = 1))
 row.names(met) = met$Code
-met$int = paste(met$Population,".",met$Stage,".",gsub("20", "", met$Year))
+met$int = paste(met$Population,".",met$Pop_size,".",met$Demo,".", gsub("20", "", met$Year))
 met$int = gsub(" ", "", met$int)
+met$int2 = paste(met$Pop_size,".",met$Demo)
+met$int2 = gsub(" ", "", met$int2)
 met$pop.year = paste(met$Population, ".", gsub("20", "", met$Year))
 met$pop.year = gsub(" ", "", met$pop.year)
 
@@ -198,7 +200,7 @@ ind.df = data.frame(otu2)##the taxa should be columns and this otu table is hell
 who = names(sort(colMeans(ind.df), decreasing = TRUE))[1:25]
 f = ind.df[,names(ind.df) %in% who]
 
-indic <- multipatt(f, sample_data(d3)$Population,
+indic <- multipatt(f, sample_data(d3)$int2,
                    control = how(nperm=99))
 summary(indic)
 
@@ -491,7 +493,7 @@ summary(mrm.soil.otus)$adj.r.squared
 
 # Realtive abundance plots at OTU level ------------------------------------------------
 
-d_f = merge_samples(d_r, "pop.year")
+d_f = merge_samples(d_r, "int")
 gen_f = data.frame(otu_table(d_f))
 gen_f = t(gen_f)
 gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
