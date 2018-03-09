@@ -3,7 +3,7 @@ setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico (1)/")
 
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
-setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/uclust_97%")
+setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/uclust_97%/pico")
 
 library(dunn.test)
 library(adespatial)
@@ -197,68 +197,18 @@ p
 
 library(indicspecies)
 ind.df = data.frame(otu2)##the taxa should be columns and this otu table is hellinger tranfromed
-who = names(sort(colMeans(ind.df), decreasing = TRUE))[1:25]
-f = ind.df[,names(ind.df) %in% who]
 
-indic <- multipatt(f, sample_data(d3)$int2,
-                   control = how(nperm=99))
-summary(indic)
+#Identification of species most responsible for differences among groups of samples
+#SIMPER(similaritypercentage), Based on abundance, does not weigh occurrence frequency as indicator species analysis does.
+sim = simper(ind.df, sample_data(d3)$int2)
+sim.sum = summary(sim)
+sim.df = data.frame(sim.sum$S.F_L.F)
 
-l.pop = indic$sign %>% 
-  add_rownames(var="OTU")%>%
-  filter(s.L == 1) %>%
-  filter(p.adjust(p.value,"fdr") < 0.05)
+sim = simper(ind.df, sample_data(d3)$Pop_size)
+sim.sum = summary(sim)
+sim.df = data.frame(sim.sum$S_L)
 
-ggplot(rel_otu_pop.year, aes(row.names(rel_otu_pop.year), denovo10325)) + geom_point()
-
-indic <- multipatt(f, sample_data(d3)$Pop_size,
-                   control = how(nperm=99))
-summary(indic)
-
-indic <- multipatt(ind.df, sample_data(d3)$Demo,
-                   control = how(nperm=99))
-summary(indic)
-
-####Do Mann-Whitney test for the indicator OTUs
-
-                                                                              
-# Phenological progression data -----------------------------------------
-
-d.pp = subset_samples(d_r, Month == "Mar"| Month == "Apr"|Year == 2017)
-d.pp
-d.pp = subset_samples(d.pp, Population == "PLF" | Population == "SCW" | Population == "SCE")
-d.pp
-
-d.pp = prune_taxa(taxa_sums(d.pp) >= 1, d.pp)
-d.pp
-
-library(vegan)
-otu2 = t(data.frame(otu_table(d.pp)))
-otu2 = decostand(otu2, method = "hellinger")
-rowSums(otu2)
-otu2 = otu_table(as.matrix(otu2), taxa_are_rows = F)
-
-d3 = merge_phyloseq(tax2, otu2, sample_data(d))
-rel_otu_code = data.frame(otu_table(d3))
-
-dist_w = vegdist(rel_otu_code, method = "bray")
-
-###PERMANOVA
-
-###Weighted distance
-
-a = adonis(dist_w ~ sample_data(d3)$Population, permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Stage, permutations = 999)
-a
-a = adonis(dist_w ~ as.factor(sample_data(d3)$Month), permutations = 999)
-a
-a = adonis(dist_w ~ as.factor(sample_data(d3)$Year), permutations = 999)
-a
-a = adonis(dist_w ~ as.factor(sample_data(d3)$Pop_size), permutations = 999)
-a
-a = adonis(dist_w ~ as.factor(sample_data(d3)$Demo), permutations = 999)
-a
+####Do Mann-Whitney test for the most important OTUs
 
 # Environmnetal data comparisons ------------------------------------------
 
@@ -489,7 +439,6 @@ summary(mrm.soil)$adj.r.squared
 
 mrm.soil.otus = lm(dist_w_py ~ dist(soil.otus))
 summary(mrm.soil.otus)$adj.r.squared
-
 
 # Realtive abundance plots at OTU level ------------------------------------------------
 
