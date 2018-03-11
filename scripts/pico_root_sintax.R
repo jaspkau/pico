@@ -238,7 +238,14 @@ for(i in 2:12){
 
 # Network analyses --------------------------------------------------------
 
+install.packages("rPython")
+library(rPython)
 
+###slelect OTUs first from which you want to build network and make net.txt file for it
+mann.df = t(mann.df)
+write.csv(mann.df, file = "data/otu.csv")
+#convert csv to .txt file 
+system("python scripts/yonatanf-sparcc-05f4d3f31d77/SparCC.py data/otu.txt -i 10 --cor_file=sparcc_corr.txt > sparcc.log")
 
 # Realtive abundance plots at OTU level ------------------------------------------------
 
