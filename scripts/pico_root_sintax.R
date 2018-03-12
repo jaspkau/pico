@@ -215,7 +215,7 @@ sim.df.sf.snf = data.frame(sim.sum$S.F_S.NF)
 sim.df.lf.snf = data.frame(sim.sum$S.NF_L.F)
 sim.df.lf.sf = data.frame(sim.sum$S.F_L.F)
 
-l.mann.otus = unique(c(row.names(sim.df.popsize)[1:10], row.names(sim.df.demo)[1:10]))
+l.mann.otus = unique(c(row.names(sim.df.popsize)[1:200], row.names(sim.df.demo)[1:200]))
 
 library(dplyr)
 
@@ -238,14 +238,59 @@ for(i in 2:12){
 
 # Network analyses --------------------------------------------------------
 
-install.packages("rPython")
-library(rPython)
+library(devtools)
+#install_github("zdk123/SpiecEasi")
+library(SpiecEasi)
 
-###slelect OTUs first from which you want to build network and make net.txt file for it
-mann.df = t(mann.df)
-write.csv(mann.df, file = "data/otu.csv")
-#convert csv to .txt file 
-system("python scripts/yonatanf-sparcc-05f4d3f31d77/SparCC.py data/otu.txt -i 10 --cor_file=sparcc_corr.txt > sparcc.log")
+#install_github("hallucigenia-sparsa/seqtime") 
+library(seqtime)
+
+d.otu = data.frame(otu_tab) ##it should no non-normalized
+otu.net = d.otu[row.names(d.otu) %in% l.mann.otus,]
+otu_tab.net = otu_table(as.matrix(otu.net), taxa_are_rows = T)
+d.net = merge_phyloseq(otu_tab.net, tax2, sample_data(d3))
+
+spiec.out=spiec.easi(d.net, method="mb",icov.select.params=list(rep.num=20))
+spiec.graph=adj2igraph(spiec.out$refit, vertex.attr=list(name=taxa_names(d.net)))
+write.graph(spiec.graph,file="spieceasi.ncol.txt",format="ncol") 
+plot_network(spiec.graph, d.net, type='taxa', color="Family", label=NULL)
+
+clusters=cluster_fast_greedy(spiec.graph)
+clusterOneIndices=which(clusters$membership==1)
+clusterOneOtus=clusters$names[clusterOneIndices]
+clusterTwoIndices=which(clusters$membership==2)
+clusterTwoOtus=clusters$names[clusterTwoIndices]
+
+betaMat=as.matrix(symBeta(getOptBeta(spiec.out)))
+
+positive=length(betaMat[betaMat>0])/2 
+negative=length(betaMat[betaMat<0])/2 
+total=length(betaMat[betaMat!=0])/2 
+
+otu.ids=colnames(spiec.out$data)
+edges=E(spiec.graph)
+edge.colors=c()
+for(e.index in 1:length(edges)){
+  adj.nodes=ends(spiec.graph,edges[e.index])
+  xindex=which(otu.ids==adj.nodes[1])
+  yindex=which(otu.ids==adj.nodes[2])
+  beta=betaMat[xindex,yindex]
+  if(beta>0){
+    edge.colors=append(edge.colors,"forestgreen")
+  }else if(beta<0){
+    edge.colors=append(edge.colors,"red")
+  }
+}
+E(spiec.graph)$color=edge.colors
+
+spiec.graph.b=spiec.graph
+nodenames=V(spiec.graph.b)$name
+V(spiec.graph.b)$name=getTaxonomy(nodenames, tax2, useRownames=TRUE)
+E(spiec.graph.b)$arrow.size=5
+V(spiec.graph.b)$color="white"
+V(spiec.graph.b)$frame.color="black"
+tkplot(spiec.graph.b)
+
 
 # Realtive abundance plots at OTU level ------------------------------------------------
 
