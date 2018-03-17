@@ -1,4 +1,4 @@
-setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//poster_data//")
+setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
 setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico (1)/")
 
@@ -86,6 +86,26 @@ row.names(met3) = met3$Row.names
 d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
 d_r
 
+# Alpha diversity ---------------------------------------------------------
+
+temp = estimate_richness(d_r)
+temp = merge(met, temp, by = "row.names")
+p =  ggplot(temp, aes(Population, Chao1))+ geom_point() + theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+a = summary(aov(Observed ~ Population, data = temp))
+a
+a = summary(aov(Simpson ~ Population, data = temp))
+a
+a = summary(aov(Shannon ~ Population, data = temp))
+a
+a = summary(aov(Observed ~ Year, data = temp))
+a
+a = summary(aov(Simpson ~ Year, data = temp))
+a
+a = summary(aov(Shannon ~ Year, data = temp))
+a
+
 # Beta diversity with bray ------------------------------------------------
 library(vegan)
 otu2 = t(data.frame(otu_table(d_r)))
@@ -147,11 +167,11 @@ p
 colfunc <- colorRampPalette(c("grey", "black"))
 library(gplots)
 g1 = heatmap.2(as.matrix(otu3), 
-          Rowv = as.dendrogram(h), margins = c(10, 3), col = colfunc(50), 
-          xlab = "Weighted Bray Curtis dissimilarity distances",
-          trace = "none",
-          cellnote = otu3, notecex=1.0,
-          notecol="white")
+               Rowv = as.dendrogram(h), margins = c(10, 3), col = colfunc(50), 
+               xlab = "Weighted Bray Curtis dissimilarity distances",
+               trace = "none",
+               cellnote = otu3, notecex=1.0,
+               notecol="white")
 
 ####At pop.year level
 
@@ -215,6 +235,62 @@ for(i in 2:12){
   results = data.frame(otu = paste(column), pvalue.popsize = paste(k), pvalue.demo = paste(k.demo))
   sim.kw = rbind(sim.kw, results)
 } 
+
+# Network analyses --------------------------------------------------------
+
+library(devtools)
+#install_github("zdk123/SpiecEasi")
+library(SpiecEasi)
+
+#install_github("hallucigenia-sparsa/seqtime") 
+library(seqtime)
+
+d.otu = data.frame(otu_tab) ##it should no non-normalized
+otu.net = d.otu[row.names(d.otu) %in% l.mann.otus,]
+otu_tab.net = otu_table(as.matrix(otu.net), taxa_are_rows = T)
+d.net = merge_phyloseq(otu_tab.net, tax2, sample_data(d3))
+
+spiec.out=spiec.easi(d.net, method="mb",icov.select.params=list(rep.num=20))
+spiec.graph=adj2igraph(spiec.out$refit, vertex.attr=list(name=taxa_names(d.net)))
+write.graph(spiec.graph,file="spieceasi.ncol.txt",format="ncol") 
+plot_network(spiec.graph, d.net, type='taxa', color="Family", label=NULL)
+
+clusters=cluster_fast_greedy(spiec.graph)
+clusterOneIndices=which(clusters$membership==1)
+clusterOneOtus=clusters$names[clusterOneIndices]
+clusterTwoIndices=which(clusters$membership==2)
+clusterTwoOtus=clusters$names[clusterTwoIndices]
+
+betaMat=as.matrix(symBeta(getOptBeta(spiec.out)))
+
+positive=length(betaMat[betaMat>0])/2 
+negative=length(betaMat[betaMat<0])/2 
+total=length(betaMat[betaMat!=0])/2 
+
+otu.ids=colnames(spiec.out$data)
+edges=E(spiec.graph)
+edge.colors=c()
+for(e.index in 1:length(edges)){
+  adj.nodes=ends(spiec.graph,edges[e.index])
+  xindex=which(otu.ids==adj.nodes[1])
+  yindex=which(otu.ids==adj.nodes[2])
+  beta=betaMat[xindex,yindex]
+  if(beta>0){
+    edge.colors=append(edge.colors,"forestgreen")
+  }else if(beta<0){
+    edge.colors=append(edge.colors,"red")
+  }
+}
+E(spiec.graph)$color=edge.colors
+
+spiec.graph.b=spiec.graph
+nodenames=V(spiec.graph.b)$name
+V(spiec.graph.b)$name=getTaxonomy(nodenames, tax2, useRownames=TRUE)
+E(spiec.graph.b)$arrow.size=5
+V(spiec.graph.b)$color="white"
+V(spiec.graph.b)$frame.color="black"
+tkplot(spiec.graph.b)
+
 
 # Realtive abundance plots at OTU level ------------------------------------------------
 
@@ -307,170 +383,226 @@ p
 
 
 
+# Environmnetal data comparisons ------------------------------------------
 
+require(partykit)
 
-# ###SOIL OMF ANALYSIS WITH 30 MOST abundant root OTUS----------------------------------------------------------------
+##final will store final results
 
-d_f = merge_samples(d_r, "Population")
-gen_f = data.frame(otu_table(d_f))
-gen_f = t(gen_f)
-gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
-gen_f$rank = paste(gen_f$Row.names)
-list = as.character(gen_f$rank)
-gen_f = gen_f[,-c(1,8:15)]
-gen_f = data.frame(t(gen_f))
-gen_f = gen_f/rowSums(gen_f)
-names(gen_f) = list
-who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:30]
+final = c()
+for(i in 8:31){
+  column = names(met2[i])
+  f = anova(aov(met2[,i]~ Population, data=met2))$"F value"
+  av = anova(aov(met2[,i]~ Population, data=met2))$"Pr(>F)"
+  results = data.frame(otu = paste(column), F.value = paste(f), Pr..F. = paste(av))
+  final = rbind(final, results)
+} 
 
-###create soil phyloseq object by using above info
+write.csv(final, file='q1_table.csv')
 
-otu_s = data.frame(otu_table(d))
-otu_s2 = otu_s[who,]
-#otu_s3 = otu_s2[, colSums(otu_s2 > 0)]
-otu_s4 = otu_table(as.matrix(otu_s2), taxa_are_rows = T)
-
-d_s = merge_phyloseq(tax2, otu_s4, sample_data(met))
-d_s
-d_s = subset_samples(d_s, Source == "S")
-d_s
-d_s = subset_samples(d_s, Month == "Feb"| Month == "Apr")
-d_s
-d_s = prune_taxa(taxa_sums(d_s) >= 1, d_s)
-d_s
-
-####scale envt data according to above sample selection
-met4 = as.data.frame(sample_data(d_s))
-s_env_met = met4[,cbind(1,2,3,4,5,6,7,52,53)]
-s_env = met4[,8:51]
-s_env = scale(s_env)
-met5 = merge(s_env_met, s_env, by = "row.names")
-row.names(met5) = met5$Row.names
-met5$int =  paste(met5$Population,".",met5$Month,".",gsub("20", "", met5$Year))
-met5$int = gsub(" ", "", met5$int)
-
-d_s = merge_phyloseq(tax_table(d_s), otu_table(d_s), sample_data(met5))
-d_s
-
-# Realtive abundance plots ------------------------------------------------
-#d_f = tax_glom(d_r, taxrank = "Family")
-d_f = merge_samples(d_s, "int")
-gen_f = data.frame(otu_table(d_f))
-gen_f = t(gen_f)
-gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
-gen_f$rank = paste(as.character(gen_f$Row.names), "_", gen_f$Family)
-#gen_f$rank = paste(gen_f$Family)
-list = as.character(gen_f$rank)
-#list = paste(list, "_", rep(1:length(list)), sep = "")
-gen_f = gen_f[,-1]
-drops <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "rank")
-gen_f = gen_f[ , !(names(gen_f) %in% drops)]
-gen_f = data.frame(t(gen_f))
-gen_f = gen_f/rowSums(gen_f)
-names(gen_f) = list
-#met$Sample = ordered(met$Sample, levels = c("A", "B", "C", "D", "E", "F", "G"))
-col.order <- c("colname4","colname3","colname2","colname5","colname1")
-who = names(gen_f)
-f = gen_f
-f$Other = 1-rowSums(f)
-who = c(who, "Other")
-dd = f
-dd$sl = row.names(dd)
-m = melt(dd, id.vars = c("sl"), measure.vars = who)
-library(RColorBrewer)
-state_col2 = scale_fill_manual(name = "State3", values=c("azure3", "burlywood1", "coral2", "wheat4", "violetred4", "turquoise3", "hotpink", "tan2", 
-                                                         "springgreen2", "slateblue2", "red3", "navyblue", "pink1", 
-                                                         "magenta", "olivedrab1", "blue2", "black", "yellow1",
-                                                         "dodgerblue1", "orangered4", "yellow4", "deeppink4", 
-                                                         "slategray4", "seagreen4" , "aquamarine",
-                                                         "tomato2"))
-library(scales)
-
-p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) + 
-  theme_bw(base_size = 20) + state_col2 + theme(axis.text.x = element_text(angle = 0, hjust=.5, size = 12)) +
-  xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black")) +
-  theme(legend.text = element_text(face = "italic")) + guides(fill = guide_legend(ncol = 1, reverse=T))+ scale_y_continuous(labels = percent_format())
-p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
+p = ggplot(met2, aes(Population, pg.rh)) + geom_point(aes(color = Month)) + facet_grid(~Year)
 p
 
-# Soil OMF Beta diversity with bray ------------------------------------------------
+##need to find variables which can dicriminate between groups
 
-#New OTU table with relative abundances 
+soil <- as.data.frame(read_excel("data/met.xlsx", sheet = 2))
 
-#First find the variable which is making the difference for weighted and unweighted data
-otu2 = t(data.frame(otu_table(d_s)))
-otu2 = decostand(otu2, method = "hellinger")
-rowSums(otu2)
-otu2 = otu_table(as.matrix(otu2), taxa_are_rows = F)
+fit <- rpart(Population ~ OM + P1 + P2 + PH +	K +	MG + CA +	
+               CEC	+ K_PCT +	MG_PCT + CA_PCT	+ NA_PCT + NO3_N +
+               S + ZN	+ MN + FE +	CU + B +	S__SALTS
+             + SAND + SILT + CLAY, method="class",
+             data = soil)
 
-d2 = merge_phyloseq(tax2, otu2, sample_data(d))
-rel_otu_code = data.frame(otu_table(d2))
+printcp(fit) # display the results 
+plotcp(fit) # visualize cross-validation results 
+summary(fit) # detailed summary of splits
 
-dist_w = vegdist(rel_otu_code, method = "bray")
-dist_w = dist.zeroes(rel_otu_code, dist_w)
+# plot tree 
+plot(fit, uniform=TRUE, 
+     main="Classification Tree")
+text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
-###PERMANOVA
+###environmental data
 
-###Weighted distance
+env <- as.data.frame(read_excel("data/met.xlsx", sheet = 3))
 
-a = adonis(dist_w ~ sample_data(d2)$Population, permutations = 999)
+library(lme4)
+install.packages("lmerTest")
+library(lmerTest)
+
+model = lmer(atemp ~ Population + (1|month),
+             data=env,
+             REML=TRUE)
+
+anova(model)
+
+fit = aov(atemp ~ Population + Error(month), data=env)
+summary(fit)
+
+fit = aov(stemp ~ Population + Error(month), data=env)
+summary(fit)
+
+fit = aov(rf ~ Population + Error(month), data=env)
+summary(fit)
+
+
+a = summary(aov(atemp ~ Pop_size, data = env))
 a
-a = adonis(dist_w ~ as.factor(sample_data(d2)$Depth), permutations = 999)
+a = summary(aov(stemp ~ Pop_size, data = env))
 a
-a = adonis(dist_w ~ as.factor(sample_data(d2)$Month), permutations = 999)
+a = summary(aov(rf ~ Pop_size, data = env))
 a
-a = adonis(dist_w ~ as.factor(sample_data(d2)$Year), permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d2)$pop.year, permutations = 999)
-a
-a = adonis(dist_w ~ as.factor(sample_data(d2)$int), permutations = 999)
+a = summary(aov(rh ~ Pop_size, data = env))
 a
 
-###Do the hierarchial clustering by compressing the
-#phyloseq object at level which is significantly different
-library(BiodiversityR)
+a = summary(aov(atemp ~ Demo, data = env))
+a
+a = summary(aov(stemp ~ Demo, data = env))
+a
+a = summary(aov(rf ~ Demo, data = env))
+a
+a = summary(aov(rh ~ Demo, data = env))
+a
 
-d3 = merge_samples(d_s, "pop.year")
-otu3 = data.frame(otu_table(d3))
-otu3 = decostand(otu3, method = "hellinger")
-rel_otu_int = data.frame(otu3)
-rowSums(otu3)
-otu3 = round(otu3, 2)
+a = summary(aov(atemp ~ Population, data = env))
+a
+a = summary(aov(stemp ~ Population, data = env))
+a
+a = summary(aov(rf ~ Population, data = env))
+a
+a = summary(aov(rh ~ Population, data = env))
+a
 
-dist_uw_int = vegdist(otu3, method = "bray", binary = TRUE)
-dist_w_int = vegdist(otu3, method = "bray")
-dist_w_int = dist.zeroes(otu3, dist_w_int)
+fit <- rpart(Demo ~ atemp + rh + stemp + rf, method="class",
+             data = env)
 
-#weighted distance analysis
-h = hclust(dist_w_int, method = "average")
-dhc <- as.dendrogram(h)
-nodePar <- list(lab.cex = 1, pch = c(NA, 19), cex = 0.7, col = "blue")
-p = plot(dhc,  xlab = "Weighted Bray-Curtis distance", nodePar = nodePar, horiz = TRUE)
-p
+printcp(fit)
+plotcp(fit)
+summary(fit)
 
-colfunc <- colorRampPalette(c("grey", "black"))
-library(gplots)
-g1 = heatmap.2(as.matrix(otu3), 
-               Rowv = as.dendrogram(h), margins = c(10, 3), col = colfunc(50), 
-               xlab = "Weighted Bray Curtis dissimilarity distances",
-               trace = "none",
-               cellnote = otu3, notecex=1.0,
-               notecol="white")
+plot(fit, uniform=TRUE, 
+     main="Classification Tree")
+text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
-# Soil OMF MRM and varition partioning ---------------------------------------------
+# RDA with soil ---------------------------------------------------------------------
+
+fwdsel_df = merge(sample_data(d4), rel_otu_pop.year, by = "row.names")
+row.names(fwdsel_df) = fwdsel_df[,1]
+names(fwdsel_df)
+test=forward.sel(fwdsel_df[,56:930], #OTUS#
+                 fwdsel_df[,12:35], #environmental variables#
+                 nperm = 999, R2thresh = 0.9, adjR2thresh = 9, alpha = 1)
+print(test) ###look at the results and select variables which are incrasing the
+#AdjR2Cim and whose p value id <0.05
+
+cc = rda(rel_otu_pop.year ~ CA_PCT + MN + ZN + P2 + K_PCT, data=fwdsel_df) ###this works for anova.cca
+summary(cc)
+anova.cca(cc)
+anova.cca(cc, by = "axis")
+anova.cca(cc, by = "terms")
+scrs<-scores(cc,display="bp")
+arrowdata<- data.frame(scrs)
+arrowdata$variables <-rownames(arrowdata)
+
+ccdata = as.data.frame(scores(cc)$sites)
+ccdata$site = row.names(ccdata)
+library(splitstackshape)
+ccdata = cSplit(ccdata, "site", ".")
+library(plyr)
+ccdata = rename(ccdata, c("site_1"="Population", "site_2"="Year"))
+#ccdata = rename(ccdata, Population = site_1, Month = site_2, Year = site_3)
+
+Year = as.factor(ccdata$Year)
+state_col_ord = scale_color_manual(values=c("wheat4", "violetred4", "turquoise3", "tomato2", "springgreen2",
+                                            "slateblue2", "navyblue", "magenta", "blue2", "black", "seagreen4",
+                                            "dodgerblue1", "orangered4", "yellow4", "slategray4", "olivedrab1","deeppink4", "aquamarine",
+                                            "hotpink", "yellow1", "tan2", "red3", "pink1"))
+
+state_col_ord = scale_color_manual(values=c("black", "red", "blue", "magenta",
+                                            "slategray4", "yellow4"))
+
+g = ggplot(data = ccdata, aes(RDA1 , RDA2)) + 
+  geom_point(aes(color = Population, shape = as.factor(Year)), size=2) + state_col_ord + 
+  geom_hline(yintercept=0, linetype="dotted") +
+  geom_vline(xintercept=0, linetype="dotted") +
+  coord_cartesian()
+
+g = g + geom_segment(data=arrowdata,aes(x=0,xend=RDA1,y=0,yend=RDA2),
+                     arrow = arrow(length = unit(0.01,"npc")), colour="black") + 
+  geom_text(data=arrowdata,aes(x=RDA1,y=RDA2,label= variables),size=3)+
+  coord_cartesian() + theme_bw()
+g
+
+# RDA with environment ---------------------------------------------------------------------
+
+fwdsel_df = merge(rel_otu_pop.year, sample_data(d4), by = "row.names")
+row.names(fwdsel_df) = fwdsel_df[,1]
+names(fwdsel_df)
+
+fwdsel_df2 = subset(fwdsel_df, Year == 2 | Year == 3)
+
+test=forward.sel(fwdsel_df[,56:930], #OTUS#
+                 fwdsel_df[,36:55], #environmental variables#
+                 nperm = 999, R2thresh = 0.9, adjR2thresh = 9, alpha = 1)
+print(test) ###look at the results and select variables which are incrasing the
+#AdjR2Cim and whose p value id <0.05
+
+cc = rda(rel_otu_pop.year ~ pg.sm1 + pg.st + pg.at, data=fwdsel_df) ###this works for anova.cca
+summary(cc)
+anova.cca(cc)
+anova.cca(cc, by = "axis")
+anova.cca(cc, by = "terms")
+scrs<-scores(cc,display="bp")
+arrowdata<- data.frame(scrs)
+arrowdata$variables <-rownames(arrowdata)
+arrowdata
+#mul<-vegan:::ordiArrowMul(scrs)
+#mul
+#arrowdata<- data.frame(scrs*mul)
+#arrowdata$variables <-rownames(arrowdata)
+
+ccdata = as.data.frame(scores(cc)$sites)
+ccdata$site = row.names(ccdata)
+rda_met <- read.xls("met.xlsx", sheet = 3,
+                    verbose = TRUE, na.strings="N/A", perl="C:/Perl64/bin/perL")
+row.names(rda_met) = rda_met[,1]
+ccdata = merge(ccdata, rda_met, by = "row.names")
+
+state_col_ord = scale_color_manual(values=c("wheat4", "violetred4", "turquoise3", "tomato2", "springgreen2",
+                                            "slateblue2", "navyblue", "magenta", "blue2", "black", "seagreen4",
+                                            "dodgerblue1", "orangered4", "yellow4", "slategray4", "olivedrab1","deeppink4", "aquamarine",
+                                            "hotpink", "yellow1", "tan2", "red3", "pink1"))
+
+state_col_ord = scale_color_manual(values=c("black", "red"))
+
+g = ggplot(data = ccdata, aes(RDA1 , RDA2)) + 
+  geom_point(aes(color = Population, shape = as.factor(Year)), size=2) + state_col_ord + 
+  geom_hline(yintercept=0, linetype="dotted") +
+  geom_vline(xintercept=0, linetype="dotted") +
+  coord_cartesian()
+
+g = g + geom_segment(data=arrowdata,aes(x=0,xend=RDA1,y=0,yend=RDA2),
+                     arrow = arrow(length = unit(0.01,"npc")), colour="black") + 
+  geom_text(data=arrowdata,aes(x=RDA1,y=RDA2,label= variables),size=3)+
+  coord_cartesian() + theme_bw()
+g
+
+# MRM and varition partioning ---------------------------------------------
 
 my.soil = sample_data(d4)
-names = c("CEC", "SAND", "B", "ZN", "NO3_N", "K")
+names = c("MG_PCT", "MN", "SAND", "ZN")
 my.soil2 = my.soil[,names] ####order of rows should be same as community data matrix
 
 my.env = sample_data(d4)
-names = c("pg.ppt", "smd.sm2", "smd.ppt", "pg.sm2", "smd.st", "pg.st")
+names = c("pg.sm2", "dr.st", "pg.st")
 my.env2 = my.env[,names] ####order of rows should be same as community data matrix
+
+soil.otus = gen_f[1:6,] ###need to create soil phyloseq object first
 
 library(ecodist)
 
-MRM(dist_w_py ~ dist(my.env2) + dist(my.soil2), nperm=1000)
-summary(lm(dist_w_py ~ dist(my.env2) + dist(my.soil2)))
+MRM(dist_w_py ~ dist(my.env2) + dist(my.soil2) + dist(soil.otus), nperm=1000)
+summary(lm(dist_w_py ~ dist(my.env2) + dist(my.soil2) + dist(soil.otus)))
 
 mrm.env = lm(dist_w_py ~ dist(my.env2))
 summary(mrm.env)$adj.r.squared
@@ -478,4 +610,5 @@ summary(mrm.env)$adj.r.squared
 mrm.soil = lm(dist_w_py ~ dist(my.soil2))
 summary(mrm.soil)$adj.r.squared
 
-###......................................................
+mrm.soil.otus = lm(dist_w_py ~ dist(soil.otus))
+summary(mrm.soil.otus)$adj.r.squared
