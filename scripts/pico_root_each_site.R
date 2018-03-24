@@ -59,7 +59,7 @@ tax2 = tax_table(as.matrix(tax2))
 library(readxl)
 met <- as.data.frame(read_excel("data/met.xlsx", sheet = 1))
 row.names(met) = met$Code
-met$int = paste(met$Population,".",met$Pop_size,".",met$Demo,".", gsub("20", "", met$Year))
+met$int = paste(met$Population,".",met$Stage,".",met$Month,".",met$Demo,".", gsub("20", "", met$Year))
 met$int = gsub(" ", "", met$int)
 met$int2 = paste(met$Pop_size,".",met$Demo)
 met$int2 = gsub(" ", "", met$int2)
@@ -75,6 +75,8 @@ d
 d_r = subset_samples(d, Source == "R")
 d_r
 d_r = subset_samples(d_r, Month == "Feb"| Month == "Apr")
+d_r
+d_r = subset_samples(d_r, Population == "CH")
 d_r
 d_r = prune_taxa(taxa_sums(d_r) >= 1, d_r)
 d_r
@@ -94,20 +96,33 @@ d_r
 
 temp = estimate_richness(d_r)
 temp = merge(met, temp, by = "row.names")
-p =  ggplot(temp, aes(Population, Chao1))+ geom_point() + theme_bw() +
+p =  ggplot(temp, aes(int, Chao1))+ geom_point() + theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+p
 
-a = summary(aov(Chao1 ~ Population, data = temp))
+a = summary(aov(Chao1 ~ Stage, data = temp))
 a
-a = summary(aov(Simpson ~ Population, data = temp))
+a = summary(aov(Simpson ~ Stage, data = temp))
 a
-a = summary(aov(Shannon ~ Population, data = temp))
+a = summary(aov(Shannon ~ Stage, data = temp))
 a
 a = summary(aov(Chao1 ~ Year, data = temp))
 a
 a = summary(aov(Simpson ~ Year, data = temp))
 a
 a = summary(aov(Shannon ~ Year, data = temp))
+a
+a = summary(aov(Chao1 ~ Month, data = temp))
+a
+a = summary(aov(Simpson ~ Month, data = temp))
+a
+a = summary(aov(Shannon ~ Month, data = temp))
+a
+a = summary(aov(Chao1 ~ Demo, data = temp))
+a
+a = summary(aov(Simpson ~ Demo, data = temp))
+a
+a = summary(aov(Shannon ~ Demo, data = temp))
 a
 
 # Beta diversity with bray ------------------------------------------------
@@ -126,23 +141,13 @@ dist_w = vegdist(rel_otu_code, method = "bray")
 
 ###Weighted distance
 
-a = adonis(dist_w ~ sample_data(d3)$Population, permutations = 999)
-a
 a = adonis(dist_w ~ sample_data(d3)$Stage, permutations = 999)
 a
 a = adonis(dist_w ~ sample_data(d3)$Month, permutations = 999)
 a
 a = adonis(dist_w ~ as.factor(sample_data(d3)$Year), permutations = 999)
 a
-a = adonis(dist_w ~ sample_data(d3)$Pop_size, permutations = 999)
-a
 a = adonis(dist_w ~ sample_data(d3)$Demo, permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Population*as.factor(sample_data(d3)$Year), permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Population*sample_data(d3)$Pop_size, permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Population*sample_data(d3)$Demo, permutations = 999)
 a
 
 ###Do the hierarchial clustering by compressing the
@@ -177,7 +182,6 @@ g1 = heatmap.2(as.matrix(otu3),
                cellnote = otu3, notecex=1.0,
                notecol="white")
 
-
 # Indicator species analyses ----------------------------------------------
 
 ind.df = data.frame(otu2)##the taxa should be columns and this otu table is hellinger tranfromed
@@ -185,13 +189,28 @@ ind.df = data.frame(otu2)##the taxa should be columns and this otu table is hell
 #Identification of species most responsible for differences among groups of samples
 #SIMPER(similaritypercentage), Based on abundance, does not weigh occurrence frequency as indicator species analysis does.
 
-sim = simper(ind.df, sample_data(d3)$Pop_size)
+sim = simper(ind.df, sample_data(d3)$Stage)
 sim.sum = summary(sim)
-sim.df.popsize = data.frame(sim.sum$S_L)
+sim.df.stage.F_V = data.frame(sim.sum$F_V)
+sim.df.stage.F_V[1:20,]
+sim.df.stage.F_S = data.frame(sim.sum$F_S)
+sim.df.stage.F_S[1:20,]
+sim.df.stage.V_S = data.frame(sim.sum$V_S)
+sim.df.stage.V_S[1:20,]
 
-sim = simper(ind.df, sample_data(d3)$Demo)
+sim = simper(ind.df, sample_data(d3)$Year)
 sim.sum = summary(sim)
-sim.df.demo = data.frame(sim.sum$F_NF)
+sim.df.year.16_15 = data.frame(sim.sum$"2016_2015")
+sim.df.year.16_15[1:20,]
+sim.df.year.16_17 = data.frame(sim.sum$"2016_2017")
+sim.df.year.16_17[1:20,]
+sim.df.year.15_17 = data.frame(sim.sum$`2015_2017`)
+sim.df.year.15_17[1:20,]
+
+sim = simper(ind.df, sample_data(d3)$Month)
+sim.sum = summary(sim)
+sim.df.month = data.frame(sim.sum$Feb_Apr)
+sim.df.month[1:20,]
 
 l.mann.otus = unique(c(row.names(sim.df.popsize)[1:200], row.names(sim.df.demo)[1:200]))
 
@@ -313,7 +332,7 @@ p
 # Realtive abundance plots at Family level ------------------------------------------------
 
 d_f = tax_glom(d_r, taxrank = "Family")
-d_f = merge_samples(d_f, "pop.year")
+d_f = merge_samples(d_f, "int")
 gen_f = data.frame(otu_table(d_f))
 gen_f = t(gen_f)
 gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
@@ -332,7 +351,7 @@ gen_f = data.frame(t(gen_f))
 gen_f = gen_f/rowSums(gen_f)
 names(gen_f) = list
 #met$Sample = ordered(met$Sample, levels = c("A", "B", "C", "D", "E", "F", "G"))
-who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:25]
+who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:18]
 f = gen_f[,names(gen_f) %in% who]
 f$Other = 1-rowSums(f)
 who = c(who, "Other")
@@ -351,14 +370,13 @@ library(scales)
 p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) + 
   theme_bw(base_size = 20) + state_col2 + theme(axis.text.x = element_text(angle = 0, hjust=.5, size = 12)) +
   xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black")) +
-  theme(legend.text = element_text(face = "italic")) + guides(fill = guide_legend(ncol = 1, reverse=T))+ scale_y_continuous(labels = percent_format())
+  theme(legend.text = element_text(face = "italic", size = 6)) + guides(fill = guide_legend(ncol = 1, reverse=T, keyheight = 0.5, keywidth = 0.5))+ scale_y_continuous(labels = percent_format())
 p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
 p
 
 #ggsave(file="jc.treatment.nms.jpg")
 
 ###......................................................
-
 
 
 # Environmnetal data comparisons ------------------------------------------
