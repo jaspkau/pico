@@ -1,9 +1,9 @@
 setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
-setwd("C:/Users/jaspr/Google Drive/Metagenomics/pico_comb_run/pico/")
+setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico (1)/")
 
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
-setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/uclust_97%/pico")
+setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
 
 library(dunn.test)
 library(adespatial)
@@ -11,14 +11,10 @@ library(phyloseq)
 library(metagenomeSeq)
 library(mixOmics)
 
-#You can do different analyses for just small populations like SCW and PLE
-#to compare the floweringa and non flowering population across years....You can also test
-#the temporal variation for large populations.....
-
 ###ROOT OMF ANALYSIS......................................
 # Make phyloseq object ----------------------------------------------------
 
-otu <- read.delim(file = "data/otu_table_no_singletons_sintax.txt", 
+otu <- read.delim(file = "data/95%/otu_table_no_singletons_sintax.txt", 
                   sep = "\t", header = T)
 otu = otu[,-ncol(otu)]
 row.names(otu) = otu[,1]
@@ -32,7 +28,7 @@ otu_tab = otu_table(as.matrix(otu), taxa_are_rows = T)
 
 library(reshape2)
 
-tax = read.delim(file = "data/tax.sintax", sep = "\t", header = F)
+tax = read.delim(file = "data/95%/tax.sintax", sep = "\t", header = F)
 row.names(tax) = tax$V1
 list = tax$V2
 tax2 = colsplit(list, pattern ="\\(|\\),", c("Kingdom", "Kingdom_conf", "Phylum", "Phylum_conf", "Class", "Class_conf", "Order", "Order_conf", "Family", "Family_conf", "Genus", "Genus_conf", "Species", "Species_conf"))
@@ -72,6 +68,9 @@ d = merge_phyloseq(tax2, otu_tab, sample_data(met))
 d
 d = subset_taxa(d, Kingdom == "d:Fungi")
 d
+#d_t = subset_taxa(d, Family == "f:Tulasnellaceae")
+#t = data.frame(taxa_names(d_t))
+#write.csv(t, file = "tul_otu.csv")
 d_r = subset_samples(d, Source == "R")
 d_r
 d_r = subset_samples(d_r, Month == "Feb"| Month == "Apr")
@@ -97,13 +96,13 @@ temp = merge(met, temp, by = "row.names")
 p =  ggplot(temp, aes(Population, Chao1))+ geom_point() + theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-a = summary(aov(Chao1 ~ Population, data = temp))
+a = summary(aov(Observed ~ Population, data = temp))
 a
 a = summary(aov(Simpson ~ Population, data = temp))
 a
 a = summary(aov(Shannon ~ Population, data = temp))
 a
-a = summary(aov(Chao1 ~ Year, data = temp))
+a = summary(aov(Observed ~ Year, data = temp))
 a
 a = summary(aov(Simpson ~ Year, data = temp))
 a
@@ -151,6 +150,7 @@ a
 d2 = merge_samples(d_r, "int")
 otu3 = data.frame(otu_table(d2))
 otu3 = decostand(otu3, method = "hellinger")
+rel_otu_int = otu3
 rowSums(otu3)
 otu3 = round(otu3, 2)
 
@@ -171,15 +171,54 @@ p
 colfunc <- colorRampPalette(c("grey", "black"))
 library(gplots)
 g1 = heatmap.2(as.matrix(otu3), 
-               Rowv = as.dendrogram(h), margins = c(10, 3), col = colfunc(50), 
-               xlab = "Weighted Bray Curtis dissimilarity distances",
-               trace = "none",
-               cellnote = otu3, notecex=1.0,
-               notecol="white")
+          Rowv = as.dendrogram(h), margins = c(10, 3), col = colfunc(50), 
+          xlab = "Weighted Bray Curtis dissimilarity distances",
+          trace = "none",
+          cellnote = otu3, notecex=1.0,
+          notecol="white")
 
+# Venn Diagrams -----------------------------------------------------------
+
+install.packages("VennDiagram")
+library(VennDiagram)
+library(gplots)
+plf.otus = subset_samples(d_r, Population == "PLF")
+plf.otus = prune_taxa(taxa_sums(plf.otus) >= 1, plf.otus)
+plf.otus = taxa_names(plf.otus)
+
+ple.otus = subset_samples(d_r, Population == "PLE")
+ple.otus = prune_taxa(taxa_sums(ple.otus) >= 1, ple.otus)
+ple.otus = taxa_names(ple.otus)
+
+sce.otus = subset_samples(d_r, Population == "SCE")
+sce.otus = prune_taxa(taxa_sums(sce.otus) >= 1, sce.otus)
+sce.otus = taxa_names(sce.otus)
+
+scw.otus = subset_samples(d_r, Population == "SCW")
+scw.otus = prune_taxa(taxa_sums(scw.otus) >= 1, scw.otus)
+scw.otus = taxa_names(scw.otus)
+
+ch.otus = subset_samples(d_r, Population == "CH")
+ch.otus = prune_taxa(taxa_sums(ch.otus) >= 1, ch.otus)
+ch.otus = taxa_names(ch.otus)
+
+mx.otus = subset_samples(d_r, Population == "MX")
+mx.otus = prune_taxa(taxa_sums(mx.otus) >= 1, mx.otus)
+mx.otus = taxa_names(mx.otus)
+
+venn(list(plf.otus, ple.otus, sce.otus, scw.otus, ch.otus, mx.otus))
+
+venn(list(plf.otus, sce.otus))
+
+venn(list(plf.otus, scw.otus))
+
+venn(list(plf.otus, ple.otus))
+
+venn(list(plf.otus, mx.otus))
 
 # Indicator species analyses ----------------------------------------------
 
+library(indicspecies)
 ind.df = data.frame(otu2)##the taxa should be columns and this otu table is hellinger tranfromed
 
 #Identification of species most responsible for differences among groups of samples
@@ -193,7 +232,7 @@ sim = simper(ind.df, sample_data(d3)$Demo)
 sim.sum = summary(sim)
 sim.df.demo = data.frame(sim.sum$F_NF)
 
-l.mann.otus = unique(c(row.names(sim.df.popsize)[1:200], row.names(sim.df.demo)[1:200]))
+l.mann.otus = unique(c(row.names(sim.df.popsize)[1:35], row.names(sim.df.demo)[1:35]))
 
 library(dplyr)
 
@@ -203,16 +242,19 @@ mann.df2 = merge(mann.df, met3, by = "row.names")
 mann.df2$Pop_size = as.factor(mann.df2$Pop_size)
 mann.df2$Demo = as.factor(mann.df2$Demo)
 
-##Do kruskal wallis test with the first 10 OTUs from simper analyses
+##Do kruskal wallis test with the first OTUs from simper analyses
 
 sim.kw = c()
-for(i in 2:12){
+for(i in 2:36){
   column = names(mann.df2[i])
   k = kruskal.test(mann.df2[,i]~Pop_size, data = mann.df2)$"p.value"
   k.demo = kruskal.test(mann.df2[,i]~Demo, data = mann.df2)$"p.value"
   results = data.frame(otu = paste(column), pvalue.popsize = paste(k), pvalue.demo = paste(k.demo))
   sim.kw = rbind(sim.kw, results)
 } 
+
+##fdr correction
+##embed p values in relative abundance graph
 
 # Network analyses --------------------------------------------------------
 
@@ -231,7 +273,7 @@ d.net = merge_phyloseq(otu_tab.net, tax2, sample_data(d3))
 spiec.out=spiec.easi(d.net, method="mb",icov.select.params=list(rep.num=20))
 spiec.graph=adj2igraph(spiec.out$refit, vertex.attr=list(name=taxa_names(d.net)))
 write.graph(spiec.graph,file="spieceasi.ncol.txt",format="ncol") 
-plot_network(spiec.graph, d.net, type='taxa', color="Family", label=NULL)
+plot_network(spiec.graph, d.net, type='taxa', color = "Family", label=NULL)
 
 clusters=cluster_fast_greedy(spiec.graph)
 clusterOneIndices=which(clusters$membership==1)
@@ -269,7 +311,6 @@ V(spiec.graph.b)$color="white"
 V(spiec.graph.b)$frame.color="black"
 tkplot(spiec.graph.b)
 
-
 # Realtive abundance plots at OTU level ------------------------------------------------
 
 d_f = merge_samples(d_r, "int")
@@ -287,7 +328,7 @@ gen_f = data.frame(t(gen_f))
 gen_f = gen_f/rowSums(gen_f)
 names(gen_f) = list
 #met$Sample = ordered(met$Sample, levels = c("A", "B", "C", "D", "E", "F", "G"))
-who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:25]
+who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:35]
 f = gen_f[,names(gen_f) %in% who]
 f$Other = 1-rowSums(f)
 who = c(who, "Other")
@@ -295,25 +336,25 @@ dd = f
 dd$sl = row.names(dd)
 m = melt(dd, id.vars = c("sl"), measure.vars = who)
 library(RColorBrewer)
-state_col2 = scale_fill_manual(name = "State3", values=c("azure3", "burlywood1", "coral2", "wheat4", "violetred4", "turquoise3", "hotpink", "tan2", 
-                                                         "springgreen2", "slateblue2", "red3", "navyblue", "pink1", 
+state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 3, name = "Pastel1"), "azure3", "burlywood1", "cornflowerblue", "wheat4", "cyan4", "turquoise3", "hotpink", "tan2", 
+                                                         "springgreen2", "slateblue2", "red3", "navyblue", 
                                                          "magenta", "olivedrab1", "blue2", "black", "yellow1",
                                                          "dodgerblue1", "orangered4", "yellow4", "deeppink4", 
                                                          "slategray4", "seagreen4" , "aquamarine",
-                                                         "tomato2"))
+                                                         "tomato2", brewer.pal(n = 8, name = "Accent")))
 library(scales)
 
 p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) + 
   theme_bw(base_size = 20) + state_col2 + theme(axis.text.x = element_text(angle = 0, hjust=.5, size = 12)) +
   xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black")) +
-  theme(legend.text = element_text(face = "italic", size = 6)) + guides(fill = guide_legend(ncol = 1, reverse=T, keyheight = 0.5, keywidth = 0.5))+ scale_y_continuous(labels = percent_format())
+  theme(legend.text = element_text(face = "italic")) + guides(fill = guide_legend(ncol = 1, reverse=T))+ scale_y_continuous(labels = percent_format())
 p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
 p
 
 # Realtive abundance plots at Family level ------------------------------------------------
 
 d_f = tax_glom(d_r, taxrank = "Family")
-d_f = merge_samples(d_f, "pop.year")
+d_f = merge_samples(d_f, "int")
 gen_f = data.frame(otu_table(d_f))
 gen_f = t(gen_f)
 gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
@@ -340,12 +381,12 @@ dd = f
 dd$sl = row.names(dd)
 m = melt(dd, id.vars = c("sl"), measure.vars = who)
 library(RColorBrewer)
-state_col2 = scale_fill_manual(name = "State3", values=c("azure3", "burlywood1", "coral2", "wheat4", "violetred4", "turquoise3", "hotpink", "tan2", 
-                                                         "springgreen2", "slateblue2", "red3", "navyblue", "pink1", 
+state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 3, name = "Pastel1"), "azure3", "burlywood1", "cornflowerblue", "wheat4", "cyan4", "turquoise3", "hotpink", "tan2", 
+                                                         "springgreen2", "slateblue2", "red3", "navyblue", 
                                                          "magenta", "olivedrab1", "blue2", "black", "yellow1",
                                                          "dodgerblue1", "orangered4", "yellow4", "deeppink4", 
                                                          "slategray4", "seagreen4" , "aquamarine",
-                                                         "tomato2"))
+                                                         "tomato2", brewer.pal(n = 8, name = "Accent")))
 library(scales)
 
 p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) + 
@@ -359,8 +400,6 @@ p
 
 ###......................................................
 
-
-
 # Environmnetal data comparisons ------------------------------------------
 
 require(partykit)
@@ -368,37 +407,19 @@ require(partykit)
 ##final will store final results
 
 final = c()
-for(i in 8:31){
+for(i in 10:33){
   column = names(met2[i])
-  f = anova(aov(met2[,i]~ Population, data=met2))$"F value"
-  av = anova(aov(met2[,i]~ Population, data=met2))$"Pr(>F)"
+  f = anova(aov(met2[,i]~ Pop_size, data=met2))$"F value"
+  av = anova(aov(met2[,i]~ Pop_size, data=met2))$"Pr(>F)"
   results = data.frame(otu = paste(column), F.value = paste(f), Pr..F. = paste(av))
   final = rbind(final, results)
 } 
 
 write.csv(final, file='q1_table.csv')
 
-p = ggplot(met2, aes(Population, pg.rh)) + geom_point(aes(color = Month)) + facet_grid(~Year)
-p
-
 ##need to find variables which can dicriminate between groups
 
-soil <- as.data.frame(read_excel("data/met.xlsx", sheet = 2))
 
-fit <- rpart(Population ~ OM + P1 + P2 + PH +	K +	MG + CA +	
-               CEC	+ K_PCT +	MG_PCT + CA_PCT	+ NA_PCT + NO3_N +
-               S + ZN	+ MN + FE +	CU + B +	S__SALTS
-             + SAND + SILT + CLAY, method="class",
-             data = soil)
-
-printcp(fit) # display the results 
-plotcp(fit) # visualize cross-validation results 
-summary(fit) # detailed summary of splits
-
-# plot tree 
-plot(fit, uniform=TRUE, 
-     main="Classification Tree")
-text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
 ###environmental data
 
@@ -408,72 +429,89 @@ library(lme4)
 install.packages("lmerTest")
 library(lmerTest)
 
+env$int = paste(env$Population,".",env$Year)
+p = ggplot(env, aes(int, rf)) + geom_point(aes(color = month))
+p 
 model = lmer(atemp ~ Population + (1|month),
              data=env,
              REML=TRUE)
-
+anova(model)
+model = lmer(stemp ~ Population + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rf ~ Population + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rh ~ Population + (1|month),
+             data=env,
+             REML=TRUE)
 anova(model)
 
-fit = aov(atemp ~ Population + Error(month), data=env)
-summary(fit)
+model = lmer(atemp ~ Pop_size + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(stemp ~ Pop_size + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rf ~ Pop_size + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rh ~ Pop_size + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
 
-fit = aov(stemp ~ Population + Error(month), data=env)
-summary(fit)
+model = lmer(atemp ~ Demo + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(stemp ~ Demo + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rf ~ Demo + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rh ~ Demo + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
 
-fit = aov(rf ~ Population + Error(month), data=env)
-summary(fit)
-
-
-a = summary(aov(atemp ~ Pop_size, data = env))
-a
-a = summary(aov(stemp ~ Pop_size, data = env))
-a
-a = summary(aov(rf ~ Pop_size, data = env))
-a
-a = summary(aov(rh ~ Pop_size, data = env))
-a
-
-a = summary(aov(atemp ~ Demo, data = env))
-a
-a = summary(aov(stemp ~ Demo, data = env))
-a
-a = summary(aov(rf ~ Demo, data = env))
-a
-a = summary(aov(rh ~ Demo, data = env))
-a
-
-a = summary(aov(atemp ~ Population, data = env))
-a
-a = summary(aov(stemp ~ Population, data = env))
-a
-a = summary(aov(rf ~ Population, data = env))
-a
-a = summary(aov(rh ~ Population, data = env))
-a
-
-fit <- rpart(Demo ~ atemp + rh + stemp + rf, method="class",
-             data = env)
-
-printcp(fit)
-plotcp(fit)
-summary(fit)
-
-plot(fit, uniform=TRUE, 
-     main="Classification Tree")
-text(fit, use.n=TRUE, all=TRUE, cex=.8)
+model = lmer(atemp ~ as.factor(Year) + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(stemp ~ as.factor(Year) + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rf ~ as.factor(Year) + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
+model = lmer(rh ~ as.factor(Year) + (1|month),
+             data=env,
+             REML=TRUE)
+anova(model)
 
 # RDA with soil ---------------------------------------------------------------------
 
-fwdsel_df = merge(sample_data(d4), rel_otu_pop.year, by = "row.names")
+fwdsel_df = merge(sample_data(d4), rel_otu_int, by = "row.names")
 row.names(fwdsel_df) = fwdsel_df[,1]
 names(fwdsel_df)
-test=forward.sel(fwdsel_df[,56:930], #OTUS#
-                 fwdsel_df[,12:35], #environmental variables#
+test=forward.sel(fwdsel_df[,44:ncol(fwdsel_df)], #OTUS#
+                 fwdsel_df[,14:37], #environmental variables#
                  nperm = 999, R2thresh = 0.9, adjR2thresh = 9, alpha = 1)
 print(test) ###look at the results and select variables which are incrasing the
 #AdjR2Cim and whose p value id <0.05
 
-cc = rda(rel_otu_pop.year ~ CA_PCT + MN + ZN + P2 + K_PCT, data=fwdsel_df) ###this works for anova.cca
+cc = rda(rel_otu_int ~ P2 + ZN + MN + CLAY + K, data=fwdsel_df) ###this works for anova.cca
 summary(cc)
 anova.cca(cc)
 anova.cca(cc, by = "axis")
@@ -590,3 +628,4 @@ summary(mrm.soil)$adj.r.squared
 
 mrm.soil.otus = lm(dist_w_py ~ dist(soil.otus))
 summary(mrm.soil.otus)$adj.r.squared
+

@@ -532,7 +532,7 @@ summary(mrm.env)$adj.r.squared
 mrm.soil = lm(dist_w_py ~ dist(my.soil2))
 summary(mrm.soil)$adj.r.squared
 
-# ###SOIL OMF ANALYSIS WITH 30 MOST abundant root OTUS----------------------------------------------------------------
+# ###SOIL OMF ANALYSIS WITH 35 MOST abundant root OTUS----------------------------------------------------------------
 
 d_f = merge_samples(d_r, "Population")
 gen_f = data.frame(otu_table(d_f))
@@ -540,11 +540,13 @@ gen_f = t(gen_f)
 gen_f = merge(gen_f, tax_table(d_f), by = "row.names")
 gen_f$rank = paste(gen_f$Row.names)
 list = as.character(gen_f$rank)
-gen_f = gen_f[,-c(1,8:15)]
+gen_f = gen_f[,-1]
+drops <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "rank")
+gen_f = gen_f[ , !(names(gen_f) %in% drops)]
 gen_f = data.frame(t(gen_f))
 gen_f = gen_f/rowSums(gen_f)
 names(gen_f) = list
-who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:30]
+who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:35]
 
 ###create soil phyloseq object by using above info
 
