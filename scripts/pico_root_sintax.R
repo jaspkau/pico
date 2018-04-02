@@ -1,14 +1,12 @@
 setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
-setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico (1)/")
+setwd("C:/Users/jaspr/Google Drive/Metagenomics/pico_comb_run/pico/")
 
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
 
-library(adespatial)
+#library(adespatial)
 library(phyloseq)
-#library(metagenomeSeq)
-#library(mixOmics)
 
 ###ROOT OMF ANALYSIS......................................
 # Make phyloseq object ----------------------------------------------------
@@ -190,7 +188,7 @@ a = adonis(dist_w ~ as.factor(sample_data(d3)$Year), permutations = 999)
 a
 a = adonis(dist_w ~ sample_data(d3)$Pop_size, permutations = 999)
 a
-a = adonis(dist_w ~ sample_data(d3)$Demo, permutations = 999)
+a = adonis(dist_w ~ sample_data(d3)$Demo, pe?indrmutations = 999)
 a
 a = adonis(dist_w ~ sample_data(d3)$Population*as.factor(sample_data(d3)$Year), permutations = 999)
 a
@@ -626,3 +624,11 @@ summary(mrm.soil)$adj.r.squared
 mrm.soil.otus = lm(dist_w_py ~ dist(soil.otus))
 summary(mrm.soil.otus)$adj.r.squared
 
+
+# Association with soil OTUs ----------------------------------------------
+#Use indpower function
+ind = indpower(mann.popsize.df)
+ind.col = melt(ind)
+ind.col.sel = ind.col[ind.col$value > 0.4,]
+
+##then select Var1 only for important OTUs from roots to select for soil OTUs
