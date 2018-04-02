@@ -5,7 +5,7 @@ setwd("C:/Users/jaspr/Google Drive/Metagenomics/pico_comb_run/pico/")
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
 
-#library(adespatial)
+#library(adespatial)  
 library(phyloseq)
 
 ###ROOT OMF ANALYSIS......................................
@@ -627,6 +627,10 @@ summary(mrm.soil.otus)$adj.r.squared
 
 # Association with soil OTUs ----------------------------------------------
 #Use indpower function
+#to define an indicator species that indicates the occurrence of another species. 
+#For example, when a species of interest (target species) is difficult to detect or identify, 
+#a reliable indicator species can function as a tool that saves time and money
+
 ind = indpower(mann.popsize.df)
 ind.col = melt(ind)
 ind.col.sel = ind.col[ind.col$value > 0.4,]

@@ -1,7 +1,4 @@
-library(adespatial)
 library(phyloseq)
-library(metagenomeSeq)
-library(mixOmics)
 
 # Make phyloseq object ----------------------------------------------------
 

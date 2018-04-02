@@ -1,5 +1,7 @@
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
 
+setwd("/Users/jaspkaur/Google Drive/Metagenomics/pico_comb_run/pico")
+
 source("scripts/pico_root_phyloseq_object_sintax.R")
 
 # Soil: Analyses of total fungal community ----------------------------------------------------------------
@@ -67,6 +69,7 @@ dist_w = vegdist(rel_otu_code, method = "bray")
 ###PERMANOVA
 
 ###Weighted distance
+library(vegan)
 
 a = adonis(dist_w ~ sample_data(d2)$Population, permutations = 999)
 a
