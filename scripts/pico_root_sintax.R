@@ -5,6 +5,8 @@ setwd("C:/Users/jaspr/Google Drive/Metagenomics/pico_comb_run/pico/")
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
 
+source("scripts/pico_root_phyloseq_object_sintax.R")
+
 #library(adespatial)  
 library(phyloseq)
 
@@ -188,10 +190,13 @@ a = adonis(dist_w ~ as.factor(sample_data(d3)$Year), permutations = 999)
 a
 a = adonis(dist_w ~ sample_data(d3)$Pop_size, permutations = 999)
 a
-a = adonis(dist_w ~ sample_data(d3)$Demo, pe?indrmutations = 999)
+a = adonis(dist_w ~ sample_data(d3)$Demo, permutations = 999)
 a
-a = adonis(dist_w ~ sample_data(d3)$Population*as.factor(sample_data(d3)$Year), permutations = 999)
+#permanova with significant factors. 
+a = adonis2(dist_w ~ sample_data(d3)$Pop_size + sample_data(d3)$Population + sample_data(d3)$Year + sample_data(d3)$Demo, strata = "Pop_size", permutations = 999)
 a
+###ajust P-values
+p.adjust(a$`Pr(>F)`, method = "bonferroni")
 
 #SIMPER (similaritypercentage) analyses ----------------------------------------------
 
@@ -631,8 +636,27 @@ summary(mrm.soil.otus)$adj.r.squared
 #For example, when a species of interest (target species) is difficult to detect or identify, 
 #a reliable indicator species can function as a tool that saves time and money
 
-ind = indpower(mann.popsize.df)
+net = read.delim("data/net.txt", sep = "\t", header = T)
+row.names(net) = net[,1]
+net = net[,-1]
+ind = indpower(net) #columns shud be OTUs
 ind.col = melt(ind)
-ind.col.sel = ind.col[ind.col$value > 0.4,]
+ind.col.t.sel = ind.col[grepl("t.r", ind.col$Var2), ] #target selection
+ind.fin.sel = ind.col.t.sel[grepl("i.s", ind.col.t.sel$Var1), ]
+#ind.col.sel = ind.col[ind.col$value > 0.1,]
+write.csv(ind.fin.sel, file = "ind.fin.sel.csv")
+##first select roots target OTUs from Var2 column and then further subset
+#dataframe for VAr1 to include only soil indicators
+library(igraph)
+x = graph_from_data_frame(ind.fin.sel) ##convert data frame to igraph object, first and second columns will be vertices and edges respectively, third and any other follwing columns will be edge attributes
+write.graph(x, file="ind.fin.sel.txt",format="ncol") 
 
-##then select Var1 only for important OTUs from roots to select for soil OTUs
+
+###select the specific vertix for plotting
+neigh.nodes <- neighbors(x, V(x)$t.s15, mode="out")
+vcol <- rep("grey40", vcount(x))
+vcol[V(x)$t.s15] <- "gold"
+vcol[neigh.nodes] <- "#ff9d00"
+plot(x, vertex.color=vcol)
+#Identify the edges going into or out of a vertex, for instance the WSJ. For a single node, use incident(), for multiple nodes use incident_edges()
+

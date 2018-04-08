@@ -10,70 +10,55 @@ library(seqtime)
 #install.packages("rPython")
 library(rPython)
 
+setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
+
+source("scripts/pico_root_phyloseq_object_sintax.R")
+
 ##make root otu file
+##"Remove taxa not seen more than 3 times in at least 5% of the samples. 
+#This protects against an OTU with small mean & trivially large C.V.
+#d.r.net = filter_taxa(d_r, function(x) sum(x > 1) > (0.05*length(x)), TRUE)
 d.r.net = merge_samples(d_r, "int")
 otu.r.net = data.frame(otu_table(d.r.net)) ##it should be non-normalized
 ###slelect OTUs first from which you want to build network, rows shud be samples
 #otu.r.net = otu.r.net[row.names(otu.r.net) %in% row.names(sim.kw.popsize),]
+taxa_names(d.r.net) = paste(gsub("o", "r", taxa_names(d.r.net)))
 colnames(otu.r.net) = paste(gsub("o", "r", colnames(otu.r.net)))
-write.csv(otu.r.net, file = "data/otu.r.net.csv")
 
-d.s.net = subset_samples(d, Population == "PLF"|Population == "PLE"
+d.s = subset_samples(d, Population == "PLF"|Population == "PLE"
                          |Population == "SCW"| Population == "SCE"
                          |Population == "MX"| Population == "CH")
 
 ##make soil otu file
-d.s.net = subset_samples(d.s.net, Source == "S")
+d.s.net = subset_samples(d.s, Source == "S")
 d.s.net = subset_samples(d.s.net, Month == "Feb"| Month == "Apr")
 d.s.net = prune_taxa(taxa_sums(d.s.net) >= 1, d.s.net)
 d.s.net
+d.s.net = filter_taxa(d.s.net, function(x) sum(x > 1) > (0.05*length(x)), TRUE)
 d.s.net = merge_samples(d.s.net, "int")
 d.s.net
 otu.s.net = data.frame(otu_table(d.s.net)) ##it should no non-normalized
+taxa_names(d.s.net) = paste(gsub("o", "s", taxa_names(d.s.net)))
 colnames(otu.s.net) = paste(gsub("o", "s", colnames(otu.s.net)))
-
-##merge root and soil otu files together
-
-net = cbind(otu.s.net, otu.r.net, by = "row.names")
-net = net[,-ncol(net)]
-
-net = t(net)
-
-write.csv(net, file = "results/97%/Resamplings/net.csv")
-#convert csv to .txt file
-system("python scripts/yonatanf-sparcc-05f4d3f31d77/SparCC.py results/97%/Resamplings/net.txt -i 10 --cor_file=results/97%/sparcc_corr.txt > results/97%/sparcc.log")
-
-system("python scripts/yonatanf-sparcc-05f4d3f31d77/MakeBootstraps.py results/97%/Resamplings/net.txt -n 100")
-
-
-#############Speceasi
-
-otu.r.net = data.frame(otu_table(d_r)) ##it should no non-normalized
-row.names(otu.r.net) = paste(gsub("o", "r", row.names(otu.r.net)))
-otu.tab.r.net = otu_table(as.matrix(otu.r.net), taxa_are_rows = T)
-tax.r.net = data.frame(tax_table(d_r)) 
-row.names(tax.r.net) = paste(gsub("o", "r", row.names(tax.r.net)))
-tax.tab.r.net = tax_table(as.matrix(tax.r.net))
-
-d.r.net = merge_phyloseq(otu.tab.r.net, tax.tab.r.net, sample_data(d))
-
-otu.s.net = data.frame(otu_table(d_s)) ##it should no non-normalized
-row.names(otu.s.net) = paste(gsub("o", "s", row.names(otu.s.net)))
-otu.tab.s.net = otu_table(as.matrix(otu.s.net), taxa_are_rows = T)
-tax.s.net = data.frame(tax_table(d_s)) 
-row.names(tax.s.net) = paste(gsub("o", "s", row.names(tax.s.net)))
-tax.tab.s.net = tax_table(as.matrix(tax.s.net))
-
-d.s.net = merge_phyloseq(otu.tab.s.net, tax.tab.s.net, sample_data(d))
 
 d.net = merge_phyloseq(d.r.net, d.s.net)
 
-###slelect OTUs first from which you want to build network and make net.txt file for it
-mann.df = t(mann.df)
-write.csv(mann.df, file = "data/otu.csv")
-#convert csv to .txt file 
-system("python scripts/yonatanf-sparcc-05f4d3f31d77/SparCC.py data/otu.txt -i 10 --cor_file=sparcc_corr.txt > sparcc.log")
-  
+###Sparcc
+spar = sparcc(data.frame(otu_table(d.net)))
+sparcc.graph <- abs(spar$Cor) >= 0.3
+diag(sparcc.graph) <- 0
+library(Matrix)
+sparcc.graph <- Matrix(sparcc.graph, sparse=TRUE)
+ig.sparcc <- adj2igraph(sparcc.graph)
+write.graph(ig.sparcc,file="ig.sparcc.txt",format="ncol") 
+
+vsize <- rowMeans(clr(data.frame(otu_table(d.net)), 1))+6
+am.coord <- layout.fruchterman.reingold(ig.mb)
+
+plot(ig.sparcc, vertex.label=NA, main="sparcc")
+
+####SpiecEasi
+
 spiec.out=spiec.easi(d.net, method="mb",icov.select.params=list(rep.num=20))
 spiec.graph=adj2igraph(spiec.out$refit, vertex.attr=list(name=taxa_names(d.net)))
 write.graph(spiec.graph,file="spieceasi.ncol.txt",format="ncol") 
