@@ -5,10 +5,20 @@ setwd("C:/Users/jaspr/Google Drive/Metagenomics/pico_comb_run/pico/")
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
 
-source("scripts/pico_root_phyloseq_object_sintax.R")
+install.packages("doParallel")
+install.packages("DT")
+install.packages("exactRankTests")
+install.packages("foreach")
+install.packages("ggplot2")
+install.packages("Rcpp")
+install.packages("shiny")
+install.packages("coin")
+install.packages("openxlsx")
+install.packages("scripts/ancom.R_1.1-3.tar.gz", repos = NULL, type="source")
 
 #library(adespatial)  
 library(phyloseq)
+library(ancom.R)
 
 ###ROOT OMF ANALYSIS......................................
 # Make phyloseq object ----------------------------------------------------
@@ -110,59 +120,23 @@ row.names(met3) = met3$Row.names
 d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
 d_r
 
+d_r.t = filter_taxa
+
 # Alpha diversity ---------------------------------------------------------
-
-plot_richness(d_r, x= "Population", measures=c("Observed", "Shannon", "Simpson") )
-
-plot_richness(d_r, x= "Year", measures=c("Observed", "Shannon", "Simpson"))
-
-plot_richness(d_r, x= "Month", measures=c("Observed", "Shannon", "Simpson"))
-
-plot_richness(d_r, x= "Stage", measures=c("Observed", "Shannon", "Simpson"))
-
-plot_richness(d_r, x= "Pop_size", measures=c("Observed", "Shannon", "Simpson"))
-
-plot_richness(d_r, x= "Demo", measures=c("Observed", "Shannon", "Simpson"))
 
 temp = estimate_richness(d_r)
 temp = merge(met, temp, by = "row.names")
 
-a = summary(aov(Observed ~ Population, data = temp))
+a = summary(aov(Shannon ~ Population + Year + Month + Stage + Pop_size + Demo, data = temp))
 a
-a = summary(aov(Simpson ~ Population, data = temp))
+p.ad = p.adjust(a[[1]]$`Pr(>F)`)
+p.ad
+a = summary(aov(Simpson ~ Population + Year + Month + Stage + Pop_size + Demo, data = temp))
 a
-a = summary(aov(Shannon ~ Population, data = temp))
-a
-a = summary(aov(Observed ~ Year, data = temp))
-a
-a = summary(aov(Simpson ~ Year, data = temp))
-a
-a = summary(aov(Shannon ~ Year, data = temp))
-a
-a = summary(aov(Observed ~ Month, data = temp))
-a
-a = summary(aov(Simpson ~ Month, data = temp))
-a
-a = summary(aov(Shannon ~ Month, data = temp))
-a
-a = summary(aov(Observed ~ Stage, data = temp))
-a
-a = summary(aov(Simpson ~ Stage, data = temp))
-a
-a = summary(aov(Shannon ~ Stage, data = temp))
-a
-a = summary(aov(Observed ~ Pop_size, data = temp))
-a
-a = summary(aov(Simpson ~ Pop_size, data = temp))
-a
-a = summary(aov(Shannon ~ Pop_size, data = temp))
-a
-a = summary(aov(Observed ~ Demo, data = temp))
-a
-a = summary(aov(Simpson ~ Demo, data = temp))
-a
-a = summary(aov(Shannon ~ Demo, data = temp))
-a
+p.ad = p.adjust(a[[1]]$`Pr(>F)`)
+p.ad
+
+plot_richness(d_r, x= "Population", measures=c("Shannon", "Simpson") )
 
 # Beta diversity with bray ------------------------------------------------
 library(vegan)
@@ -180,23 +154,24 @@ dist_w = vegdist(rel_otu_code, method = "bray")
 
 ###Weighted distance
 
-a = adonis(dist_w ~ sample_data(d3)$Population, permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Stage, permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Month, permutations = 999)
-a
-a = adonis(dist_w ~ as.factor(sample_data(d3)$Year), permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Pop_size, permutations = 999)
-a
-a = adonis(dist_w ~ sample_data(d3)$Demo, permutations = 999)
-a
 #permanova with significant factors. 
-a = adonis2(dist_w ~ sample_data(d3)$Pop_size + sample_data(d3)$Population + sample_data(d3)$Year + sample_data(d3)$Demo, strata = "Pop_size", permutations = 999)
+a = adonis2(dist_w ~ sample_data(d3)$Pop_size + sample_data(d3)$Population + sample_data(d3)$Year + sample_data(d3)$Demo + sample_data(d3)$Stage, strata = "Pop_size", permutations = 999)
 a
 ###ajust P-values
 p.adjust(a$`Pr(>F)`, method = "bonferroni")
+
+# ANCOM (Analysis of composition of microbiome)-------------------------------------------------------------------
+
+ancom.otu = t(data.frame(otu_table(d_r))) ##columns = OTUs and should be counts
+ancom.otu = merge(ancom.otu, sample_data(d_r), by = "row.names")
+row.names(ancom.otu) = ancom.otu$Code
+ancom.otu = ancom.otu[,-1]
+names(ancom.otu)
+ancom.fin = ancom.otu[,c(1:708, 719)] ##look for the grouping variable you want to use
+
+anc = ANCOM(ancom.fin)
+anc$detected
+plot_ancom(anc)
 
 #SIMPER (similaritypercentage) analyses ----------------------------------------------
 
@@ -327,10 +302,9 @@ state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 5, name 
 
 library(scales)
 
-p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) + 
-  theme_bw(base_size = 20) + state_col2 + theme(axis.text.x = element_text(angle = 0, hjust=.5, size = 12)) +
-  xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black")) +
-  theme(legend.text = element_text(face = "italic")) + guides(fill = guide_legend(ncol = 1, reverse=T))+ scale_y_continuous(labels = percent_format())
+p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
+  theme_bw(base_size = 20) + state_col2 + xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 0.9, size = 10, color = "black")) +
+  theme(legend.text = element_text(face = "italic", size = 10)) + guides(fill = guide_legend(ncol = 1, reverse=T, keywidth = 0.8, keyheight = 0.8))+ scale_y_continuous(labels = percent_format())
 p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
 p
 
@@ -372,13 +346,11 @@ state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 3, name 
                                                          "tomato2", brewer.pal(n = 8, name = "Accent")))
 library(scales)
 
-p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) + 
-  theme_bw(base_size = 20) + state_col2 + theme(axis.text.x = element_text(angle = 0, hjust=.5, size = 12)) +
-  xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black")) +
-  theme(legend.text = element_text(face = "italic")) + guides(fill = guide_legend(ncol = 1, reverse=T))+ scale_y_continuous(labels = percent_format())
+p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
+  theme_bw(base_size = 20) + state_col2 + xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 0.9, size = 10, color = "black")) +
+  theme(legend.text = element_text(face = "italic", size = 10)) + guides(fill = guide_legend(ncol = 1, reverse=T, keywidth = 0.8, keyheight = 0.8))+ scale_y_continuous(labels = percent_format())
 p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
 p
-
 #ggsave(file="jc.treatment.nms.jpg")
 
 ###......................................................
@@ -631,10 +603,6 @@ summary(mrm.soil.otus)$adj.r.squared
 
 
 # Association with soil OTUs ----------------------------------------------
-#Use indpower function
-#to define an indicator species that indicates the occurrence of another species. 
-#For example, when a species of interest (target species) is difficult to detect or identify, 
-#a reliable indicator species can function as a tool that saves time and money
 
 net = read.delim("data/net.txt", sep = "\t", header = T)
 row.names(net) = net[,1]
