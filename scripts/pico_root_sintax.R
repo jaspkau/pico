@@ -120,8 +120,6 @@ row.names(met3) = met3$Row.names
 d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
 d_r
 
-d_r.t = filter_taxa
-
 # Alpha diversity ---------------------------------------------------------
 
 temp = estimate_richness(d_r)
@@ -155,7 +153,7 @@ dist_w = vegdist(rel_otu_code, method = "bray")
 ###Weighted distance
 
 #permanova with significant factors. 
-a = adonis2(dist_w ~ sample_data(d3)$Pop_size + sample_data(d3)$Population + sample_data(d3)$Year + sample_data(d3)$Demo + sample_data(d3)$Stage, strata = "Pop_size", permutations = 999)
+a = adonis2(dist_w ~ sample_data(d3)$Pop_size + sample_data(d3)$Population + sample_data(d3)$Year + sample_data(d3)$Stage, strata = "Pop_size", permutations = 999)
 a
 ###ajust P-values
 p.adjust(a$`Pr(>F)`, method = "bonferroni")
@@ -476,8 +474,8 @@ anova(model)
 fwdsel_df = merge(sample_data(d4), rel_otu_int, by = "row.names")
 row.names(fwdsel_df) = fwdsel_df[,1]
 names(fwdsel_df)
-test=forward.sel(fwdsel_df[,41:ncol(fwdsel_df)], #OTUS#
-                 fwdsel_df[,15:34], #environmental variables#
+test=forward.sel(fwdsel_df[,42:ncol(fwdsel_df)], #OTUS#
+                 fwdsel_df[,16:35], #environmental variables#
                  nperm = 999, R2thresh = 0.9, adjR2thresh = 9, alpha = 1)
 print(test) ###look at the results and select variables which are incrasing the
 #AdjR2Cim and whose p value id <0.05
@@ -507,10 +505,10 @@ state_col_ord = scale_color_manual(values=c("wheat4", "violetred4", "turquoise3"
                                             "hotpink", "yellow1", "tan2", "red3", "pink1"))
 
 state_col_ord = scale_color_manual(values=c("black", "red", "blue", "magenta",
-                                            "slategray4", "yellow1"))
+                                            "slategray4", "darkgreen"))
 
 g = ggplot(data = ccdata, aes(RDA1 , RDA2)) + 
-  geom_point(aes(color = Population, shape = as.factor(Year)), size= Pop_size) + state_col_ord + 
+  geom_point(aes(color = Population, shape = as.factor(Year), size = 0.6)) + state_col_ord + 
   geom_hline(yintercept=0, linetype="dotted") +
   geom_vline(xintercept=0, linetype="dotted") +
   coord_cartesian()
