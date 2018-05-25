@@ -1,6 +1,6 @@
 setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
-setwd("C:/Users/jaspr/Google Drive/Metagenomics/pico_comb_run/pico/")
+setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico/")
 
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
@@ -14,7 +14,7 @@ install.packages("Rcpp")
 install.packages("shiny")
 install.packages("coin")
 install.packages("openxlsx")
-install.packages("scripts/ancom.R.zip", repos = NULL, type="source")
+install.packages("scripts/ancom.R/", repos = NULL, type="source")
 
 #library(adespatial)  
 library(phyloseq)
@@ -41,11 +41,7 @@ d_r
 temp = estimate_richness(d_r)
 temp = merge(met, temp, by = "row.names")
 
-a = summary(aov(Shannon ~ Population + Year + Month + Stage + Pop_size + Demo, data = temp))
-a
-p.ad = p.adjust(a[[1]]$`Pr(>F)`)
-p.ad
-a = summary(aov(Simpson ~ Population + Year + Month + Stage + Pop_size + Demo, data = temp))
+a = summary(aov(Simpson ~ Pop_size + Population + Year + Month + Stage + Demo, data = temp))
 a
 p.ad = p.adjust(a[[1]]$`Pr(>F)`)
 p.ad
@@ -69,8 +65,9 @@ dist_w = vegdist(rel_otu_code, method = "bray")
 ###Weighted distance
 
 #permanova with significant factors. 
-a = adonis2(dist_w ~ sample_data(d.bd)$Pop_size + sample_data(d.bd)$Population + sample_data(d.bd)$Year + sample_data(d.bd)$Demo + sample_data(d.bd)$Stage, strata = "Pop_size", permutations = 999)
+a = adonis2(dist_w ~ sample_data(d.bd)$Pop_size + sample_data(d.bd)$Population + sample_data(d.bd)$Year + sample_data(d.bd)$Stage, permutations = 999)
 a
+
 ###ajust P-values
 p.adjust(a$`Pr(>F)`, method = "bonferroni")
 
@@ -98,6 +95,8 @@ dhc <- as.dendrogram(h)
 nodePar <- list(lab.cex = 1, pch = c(NA, 19), cex = 0.7, col = "blue")
 p = plot(dhc,  xlab = "Weighted Bray-Curtis distance", nodePar = nodePar, horiz = TRUE)
 p
+
+source("scripts/differential_abundance.R")
 
 ####prune the otu table according to simper analyses results
 #to retain otus which need to be shown in heatmap
@@ -128,7 +127,6 @@ p.phy
 
 ###relative abundances at family level
 p.fam
-
 
 # MRM and varition partioning ---------------------------------------------
 

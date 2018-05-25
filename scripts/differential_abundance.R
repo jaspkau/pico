@@ -1,4 +1,4 @@
-setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
+#setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
 #library(adespatial)  
 library(phyloseq)
@@ -12,44 +12,7 @@ library(dplyr)
 ###ROOT OMF ANALYSIS......................................
 
 source("scripts/make_phyloseq.R")
-
-decon.d = subset_samples(d, Source == "R")
-decon.d
-
-####decontaminate phyloseq object based on frequency and prevelence
-
-source("scripts/decontaminate_phyloseq.R")
-
-decon
-
-d_r = subset_samples(decon, Month == "Feb"| Month == "Apr")
-d_r
-d_r = prune_taxa(taxa_sums(d_r) >= 1, d_r)
-d_r
-
-####scale envt data according to above sample selection
-met2 = data.frame(sample_data(d_r))
-env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,10,11,38,39)]
-env = met2[,12:37]
-env = scale(env)
-met3 = merge(env_met, env, by = "row.names")
-row.names(met3) = met3$Row.names
-
-d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
-d_r
-
-# ANCOM (Analysis of composition of microbiome)-------------------------------------------------------------------
-
-ancom.otu = t(data.frame(otu_table(d_r))) ##columns = OTUs and should be counts
-ancom.otu = merge(ancom.otu, sample_data(d_r), by = "row.names")
-row.names(ancom.otu) = ancom.otu$Code
-ancom.otu = ancom.otu[,-1]
-names(ancom.otu)
-ancom.fin = ancom.otu[,c(1:708, 719)] ##look for the grouping variable you want to use
-
-anc = ANCOM(ancom.fin)
-anc$detected
-plot_ancom(anc)
+source("scripts/root_phyloseq.R")
 
 #SIMPER (similaritypercentage) analyses ----------------------------------------------
 
@@ -87,7 +50,7 @@ sim.kw.popsize$p.ad = p.adjust(sim.kw.popsize$pval, method = "bonferroni")
 
 ############OTUs differenting between demopgraphic classes
 
-sim = simper(ind.df, sample_data(d3)$Demo)
+sim = simper(ind.df, sample_data(d.bd)$Demo)
 sim.sum = summary(sim)
 sim.df.demo = data.frame(sim.sum$F_NF)
 
@@ -111,4 +74,18 @@ for(i in 2:51){
 } 
 
 sim.kw.demo$p.ad = p.adjust(sim.kw.demo$pval, method = "bonferroni")
+
+
+# ANCOM (Analysis of composition of microbiome)-------------------------------------------------------------------
+
+ancom.otu = t(data.frame(otu_table(d_r))) ##columns = OTUs and should be counts
+ancom.otu = merge(ancom.otu, sample_data(d_r), by = "row.names")
+row.names(ancom.otu) = ancom.otu$Code
+ancom.otu = ancom.otu[,-1]
+names(ancom.otu)
+ancom.fin = ancom.otu[,c(1:563, 574)] ##look for the grouping variable you want to use
+
+anc = ANCOM(ancom.fin)
+anc$detected
+plot_ancom(anc)
 
