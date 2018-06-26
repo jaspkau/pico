@@ -9,10 +9,22 @@ library(devtools)
 library(decontam)
 library(dplyr)
 
-###ROOT OMF ANALYSIS......................................
+#source("scripts/make_phyloseq.R")
+#source("scripts/root_phyloseq.R")
 
-source("scripts/make_phyloseq.R")
-source("scripts/root_phyloseq.R")
+# ANCOM (Analysis of composition of microbiome)-------------------------------------------------------------------
+
+ancom.otu = t(data.frame(otu_table(d.an))) ##columns = OTUs and should be counts
+ancom.otu = merge(ancom.otu, sample_data(d.an), by = "row.names")
+row.names(ancom.otu) = ancom.otu$Code
+ancom.otu = ancom.otu[,-1]
+names(ancom.otu)
+##look for the grouping variable you want to use
+ancom.fin = ancom.otu[, grepl("otu", names(ancom.otu))|grepl("Pop_size", names(ancom.otu))]
+
+anc = ANCOM(ancom.fin, multcorr = 1, sig = 0.05)
+anc$detected
+plot_ancom(anc)
 
 #SIMPER (similaritypercentage) analyses ----------------------------------------------
 
@@ -29,7 +41,7 @@ ind.df = data.frame(otu2)##the taxa should be columns and this otu table is hell
 
 sim = simper(ind.df, sample_data(d.bd)$Pop_size)
 sim.sum = summary(sim)
-sim.df.popsize = data.frame(sim.sum$L_S)
+sim.df.popsize = data.frame(sim.sum$S_L)
 
 sim.popsize.otus = row.names(sim.df.popsize)[1:50]
 
@@ -75,17 +87,4 @@ for(i in 2:51){
 
 sim.kw.demo$p.ad = p.adjust(sim.kw.demo$pval, method = "bonferroni")
 
-
-# ANCOM (Analysis of composition of microbiome)-------------------------------------------------------------------
-
-ancom.otu = t(data.frame(otu_table(d_r))) ##columns = OTUs and should be counts
-ancom.otu = merge(ancom.otu, sample_data(d_r), by = "row.names")
-row.names(ancom.otu) = ancom.otu$Code
-ancom.otu = ancom.otu[,-1]
-names(ancom.otu)
-ancom.fin = ancom.otu[,c(1:563, 574)] ##look for the grouping variable you want to use
-
-anc = ANCOM(ancom.fin)
-anc$detected
-plot_ancom(anc)
 

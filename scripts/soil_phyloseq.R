@@ -19,7 +19,7 @@ s_env = met4[,12:37]
 s_env = scale(s_env)
 met5 = merge(s_env_met, s_env, by = "row.names")
 row.names(met5) = met5$Row.names
-met5$int =  paste(met5$Population,".",met5$Month,".",met5$Pop_size,".",met5$Demo,".",gsub("20", "", met5$Year))
+met5$int =  paste(met5$Population,".",met5$Pop_size,".",met5$Demo,".",gsub("20", "", met5$Year))
 met5$int = gsub(" ", "", met5$int)
 
 d_s = merge_phyloseq(tax_table(d_s), otu_table(d_s), sample_data(met5))

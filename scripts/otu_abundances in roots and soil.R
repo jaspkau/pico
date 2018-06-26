@@ -1,5 +1,4 @@
 setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
-
 setwd("/Users/jaspkaur/Google Drive/Metagenomics/pico_comb_run/pico")
 
 source("scripts/make_phyloseq.R")

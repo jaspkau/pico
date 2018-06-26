@@ -30,11 +30,11 @@ state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 5, name 
 
 library(scales)
 
-p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
+p.otus = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
   theme_bw(base_size = 20) + state_col2 + xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 0.9, size = 10, color = "black")) +
-  theme(legend.text = element_text(face = "italic", size = 10)) + guides(fill = guide_legend(ncol = 1, reverse=T, keywidth = 0.8, keyheight = 0.8))+ scale_y_continuous(labels = percent_format())
-p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
-p
+  theme(legend.text = element_text(face = "italic", size = 8)) + guides(fill = guide_legend(ncol = 2, reverse=T, keywidth = 0.5, keyheight = 0.5))+ scale_y_continuous(labels = percent_format())
+p.otus$data$variable = factor(p.otus$data$variable, ordered = TRUE, levels = rev(who))
+p.otus
 
 # Realtive abundance plots at Family level ------------------------------------------------
 
@@ -74,12 +74,11 @@ state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 3, name 
                                                          "tomato2", brewer.pal(n = 8, name = "Accent")))
 library(scales)
 
-p = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
+p.fam = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
   theme_bw(base_size = 20) + state_col2 + xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 0.9, size = 10, color = "black")) +
   theme(legend.text = element_text(face = "italic", size = 10)) + guides(fill = guide_legend(ncol = 1, reverse=T, keywidth = 0.8, keyheight = 0.8))+ scale_y_continuous(labels = percent_format())
-p$data$variable = factor(p$data$variable, ordered = TRUE, levels = rev(who))
-p
+p.fam$data$variable = factor(p.fam$data$variable, ordered = TRUE, levels = rev(who))
+p.fam
 #ggsave(file="jc.treatment.nms.jpg")
 
-###......................................................
 

@@ -10,72 +10,41 @@ library(vegan)
 library(splitstackshape)
 library(plyr)
 
-###ROOT OMF ANALYSIS......................................
-
 source("scripts/make_phyloseq.R")
+source("scripts/root_phyloseq.R")
+d.an = d_r
+source("scripts/differential_abundance.R")
+an.otus = anc$detected
 
-decon.d = subset_samples(d, Source == "R")
-decon.d
+d = subset_samples(d, Population %in% c("SCW", "PLF", "PLE", "SCE"))
+d
 
-####decontaminate phyloseq object based on frequency and prevelence
+sample_data(d)$int = paste(sample_data(d)$Source,".",sample_data(d)$Population,".",sample_data(d)$Year)
 
-source("scripts/decontaminate_phyloseq.R")
+d.fin = prune_taxa(taxa_names(d)%in% an.otus, d)
+d.fin
 
-d_fin = subset_samples(decon, Month == "Feb"| Month == "Apr")
-d_fin
-d_fin = prune_taxa(taxa_sums(d_fin) >= 1, d_fin)
-d_fin
-
-####scale envt data according to above sample selection
-met2 = data.frame(sample_data(d_fin))
-env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,10,11,38,39)]
-env = met2[,12:37]
-env = scale(env)
-met3 = merge(env_met, env, by = "row.names")
-row.names(met3) = met3$Row.names
-
-d_fin = merge_phyloseq(tax_table(d_fin), otu_table(d_fin), sample_data(met3))
-d_fin
-
-####most abundant OTUs in roots
-d_r = subset_samples(d_fin, Source == "R")
-d_r = prune_taxa(taxa_sums(d_r) >= 1, d_fin)
-d_r
-d_f = merge_samples(d_r, "Population")
-r.otus = data.frame(otu_table(d_f))
-r.otus = r.otus/rowSums(r.otus)
-r.otus.sel = names(sort(colMeans(r.otus), decreasing = TRUE))[1:25]
-
-###
-
-otu_rda = data.frame(otu_table(d_fin))
-otu_rda2 = otu_rda[r.otus.sel,]
-otu_rda2 = otu_rda2[,colSums(otu_rda2) > 0]
-#otu_s3 = otu_s2[, colSums(otu_s2 > 0)]
-otu_rda3 = otu_table(as.matrix(otu_rda2), taxa_are_rows = T)
-
-d_fin2 = merge_phyloseq(tax_table(d_fin), otu_rda3, sample_data(met3))
-d_fin2
+#d.fin = prune_taxa(taxa_names(d_r), d)
+#d.fin
 
 # Hierarchial clustering --------------------------------------------------
 
 #compressing the phyloseq object at level which is significantly different
 
-d2 = merge_samples(d_fin2, "int")
+d2 = merge_samples(d.fin, "int")
 otu3 = data.frame(otu_table(d2))
 otu3 = decostand(otu3, method = "hellinger")
 rel_otu_int = otu3
 rowSums(otu3)
 otu3 = round(otu3, 2)
 
-dist_uw_int = vegdist(otu3, method = "bray", binary = TRUE)
 dist_w_int = vegdist(otu3, method = "bray")
 
 otu3_tab = otu_table(as.matrix(otu3), taxa_are_rows = F)
 d4 = merge_phyloseq(tax2, otu_table(as.matrix(otu3_tab), 
                                     taxa_are_rows = F), sample_data(d2))
 
-# RDA with soil ---------------------------------------------------------------------
+# RDA with environment ---------------------------------------------------------------------
 fwdsel_df = merge(sample_data(d4), rel_otu_int, by = "row.names")
 row.names(fwdsel_df) = fwdsel_df[,1]
 cc = rda(rel_otu_int ~ pg.at + pg.rh + pg.st + pg.ppt, data=fwdsel_df) ###this works for anova.cca
@@ -91,7 +60,7 @@ ccdata = as.data.frame(scores(cc)$sites)
 ccdata$site = row.names(ccdata)
 #install.packages("splitstackshape")
 ccdata = cSplit(ccdata, "site", ".")
-ccdata = rename(ccdata, c("site_1"="Source", "site_2"="Population", "site_3"="Pop_size", "site_4"="Demo", "site_5"="Year"))
+ccdata = plyr::rename(ccdata, c("site_1"="Source", "site_2"="Population", "site_3"="Pop_size", "site_4"="Demo", "site_5"="Year"))
 #ccdata = rename(ccdata, Population = site_1, Month = site_2, Year = site_3)
 
 Year = as.factor(ccdata$Year)
