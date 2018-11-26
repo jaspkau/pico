@@ -11,30 +11,14 @@ library(splitstackshape)
 library(plyr)
 
 source("scripts/make_phyloseq.R")
-source("scripts/root_phyloseq.R")
-d.an = d_r
-source("scripts/differential_abundance.R")
-an.otus = anc$detected
-
-source("scripts/soil_phyloseq.R")
-d_s
-d_s = prune_taxa(taxa_sums(d_s) >= 1, d_s)
-d_s
-
-#SOIL OTUs identified in ROOTS
-d_s = prune_taxa(taxa_names(d_s) %in% taxa_names(d_r), d_s)
-d_s
 
 d = subset_samples(d, Month == "Feb"| Month == "Apr")
 d
 
 sample_data(d)$int = paste(sample_data(d)$Source,".",sample_data(d)$Population,".",sample_data(d)$Year)
   
-d.fin = prune_taxa(taxa_names(d)%in% an.otus, d)
-d.fin
-
-#d.fin = prune_taxa(taxa_names(d_s), d)
-#d.fin
+d.fin = subset_taxa(d, Family == "f:Ceratobasidiaceae"| 
+                  Family == "f:Tulasnellaceae")
 
 # Hierarchial clustering --------------------------------------------------
 #compressing the phyloseq object at level which is significantly different
@@ -89,23 +73,37 @@ state_col_ord = scale_color_manual(values=c("black", "red", "blue", "magenta",
 g = ggplot(data = cap, aes(MDS1 , MDS2, color = Population)) + 
   geom_point(aes(color = Population, shape = Source, size = 3)) + state_col_ord + 
   geom_hline(yintercept=0, linetype="dotted") +
-  geom_vline(xintercept=0, linetype="dotted") + stat_ellipse(aes(MDS1 , MDS2, group = Source)) +
+  geom_vline(xintercept=0, linetype="dotted") + stat_ellipse(aes(MDS1 , MDS2, group = popL)) +
   coord_cartesian() +
   labs(x = paste("Axis 1 (", round(s$cont$importance[2,1]*100, digits =2), "%)", sep = ''),
        y = paste("Axis 2 (", round(s$cont$importance[2,2]*100, digits =2), "%)", sep = ''))
 
 # RDA with soil ---------------------------------------------------------------------
+
 fwdsel_df = merge(sample_data(d4), rel_otu_int, by = "row.names")
 row.names(fwdsel_df) = fwdsel_df[,1]
 names(fwdsel_df)
 library(adespatial)
-test=forward.sel(fwdsel_df[,41:ncol(fwdsel_df)], #OTUS#
-                 fwdsel_df[,13:32], #environmental variables#
+test=forward.sel(fwdsel_df[,42:ncol(fwdsel_df)], #OTUS#
+                 fwdsel_df[,17:35], #environmental variables#
                  nperm = 999, R2thresh = 0.9, adjR2thresh = 9, alpha = 1)
 print(test) ###look at the results and select variables which are incrasing the
-#AdjR2Cim and whose p value id <0.05
-#cc = rda(rel_otu_int ~ P2 + SAND + ZN + MN + CA, data=fwdsel_df) ###this works for anova.cca
-cc = rda(rel_otu_int ~ ZN + P1 + S_SALTS + OM, data=fwdsel_df) ###this works for anova.cca
+
+soil <- as.data.frame(read_excel("data/met.xlsx", sheet = 2))
+library(rpart)
+con = rpart.control(cp = 0.01, 
+                    maxcompete = 6)
+fit <- rpart(Population ~ OM + P1 + P2 + PH +	K +	MG + CA +	
+               CEC + NO3_N + S + ZN	+ MN + FE +	CU + B +	S__SALTS
+             + SAND + SILT + CLAY, method="class", control = con, data = soil)
+
+printcp(fit) # display the results 
+plotcp(fit) # visualize cross-validation results 
+summary(fit) # detailed summary of splits
+
+cc = rda(rel_otu_int ~ P1 + P2 + ZN + CA + S_SALTS +
+           CU + CEC + PH + OM, data= fwdsel_df) ###this works for anova.cca
+
 summary(cc)
 anova.cca(cc)
 anova.cca(cc, by = "axis")
@@ -117,6 +115,7 @@ arrowdata$variables <-rownames(arrowdata)
 ccdata = as.data.frame(scores(cc)$sites)
 ccdata$site = row.names(ccdata)
 #install.packages("splitstackshape")
+library(splitstackshape)
 ccdata = cSplit(ccdata, "site", ".")
 ccdata = plyr::rename(ccdata, c("site_1"="Source", "site_2"= "Population", "site_3" = "Year"))
 #ccdata = rename(ccdata, Population = site_1, Month = site_2, Year = site_3)

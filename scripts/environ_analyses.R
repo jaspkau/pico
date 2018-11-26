@@ -1,40 +1,25 @@
 setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 
-#library(adespatial)  
-library(phyloseq)
-library(ancom.R)
-library(devtools)
-#devtools::install_github("benjjneb/decontam")
-library(decontam)
+library(readxl)
+library(vegan)
+library(lubridate)#workwithdates
+library(dplyr)#datamanipulation(filter,summarize,mutate)
+library(ggplot2)#graphics
+library(gridExtra)#tileseveralplotsnexttoeachother
+#install.packages("tseries")
+library(tseries)
+#install.packages("forecast")
+library(forecast)
+library(lmtest)
+library(gdata)
+library(dendextend)
+library(ggdendro)
 
-###ROOT OMF ANALYSIS......................................
-
-source("scripts/make_phyloseq.R")
-
-decon.d = subset_samples(d, Source == "R")
-decon.d
-
-####decontaminate phyloseq object based on frequency and prevelence
-
-source("scripts/decontaminate_phyloseq.R")
-
-decon
-
-d_r = subset_samples(decon, Month == "Feb"| Month == "Apr")
-d_r
-d_r = prune_taxa(taxa_sums(d_r) >= 1, d_r)
-d_r
-
-####scale envt data according to above sample selection
-met2 = data.frame(sample_data(d_r))
-env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,10,11,38,39)]
-env = met2[,12:37]
-env = scale(env)
-met3 = merge(env_met, env, by = "row.names")
-row.names(met3) = met3$Row.names
-
-d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
-d_r
+library(TSclust)
+library(gdata)
+library(imputeTS)
+library(lsmeans)
+library(multcomp)
 
 # Environmnetal data comparisons ------------------------------------------
 
@@ -42,113 +27,70 @@ require(partykit)
 
 ##final will store final results
 
+soil <- as.data.frame(read_excel("data/met.xlsx", sheet = 2))
+soil = subset(soil, Month == "Feb"|Month == "April")
+
 final = c()
-for(i in 10:29){
-  column = names(met2[i])
-  f = anova(aov(met2[,i]~ Population, data=met2))$"F value"
-  av = anova(aov(met2[,i]~ Population, data=met2))$"Pr(>F)"
-  results = data.frame(otu = paste(column), F.value = paste(f), Pr..F. = paste(av))
+for(i in 6:24){
+  column = names(soil[i])
+  k.year = kruskal.test(soil[,i]~ as.factor(soil$Year), data = soil)$"p.value"
+  k.pop = kruskal.test(soil[,i]~ as.factor(soil$Population), data = soil)$"p.value"
+  k.popsize = kruskal.test(soil[,i]~ as.factor(soil$Pop_size), data = soil)$"p.value"
+  results = data.frame(otu = paste(column), pval.year = as.numeric(paste(k.year)), pval.pop = as.numeric(paste(k.pop)), pval.popsize = as.numeric(paste(k.popsize)))
   final = rbind(final, results)
 } 
 
-write.csv(final, file='soil_aov.csv')
+final$pad.year = p.adjust(final$pval.year, method = "bonferroni")
+final$pad.pop = p.adjust(final$pval.pop, method = "bonferroni")
+final$pad.popsize = p.adjust(final$pval.popsize, method = "bonferroni")
 
-##need to find variables which can dicriminate between groups
+write.csv(final, file='results/soil_kw.csv')
 
-soil <- as.data.frame(read_excel("data/met.xlsx", sheet = 2))
+library(FSA) ###for multiple pairwise comparisons after kw
+DT = dunnTest(soil$SILT ~ as.factor(soil$Population), data=soil, method="bonferroni")
 
-library(rpart)
-con = rpart.control(cp = 0.01, 
-                    maxcompete = 6)
-fit <- rpart(Population ~ OM + P1 + P2 + PH +	K +	MG + CA +	
-               CEC + NO3_N + S + ZN	+ MN + FE +	CU + B +	S__SALTS
-             + SAND + SILT + CLAY, method="class", control = con, data = soil)
-
-printcp(fit) # display the results 
-plotcp(fit) # visualize cross-validation results 
-summary(fit) # detailed summary of splits
-
-#install.packages("rpart.plot")
-library(rpart.plot)
-
-rpart.plot(fit)
+library(rcompanion) ##for compact letter display after dunn
+DT = DT$res
+p.ad = cldList(P.adj ~ Comparison, data = DT, threshold = 0.05)
+p.ad
 
 ###environmental data
 
-env <- as.data.frame(read_excel("data/met.xlsx", sheet = 3))
+data <- read.xls("data/pico_comb_envt.xlsx",
+                 sheet=4,verbose=TRUE,na.strings="N/A")
 
-library(lme4)
-install.packages("lmerTest")
-library(lmerTest)
+keep = c("Site", "pop.size","year", "month", "day2", "st")
+#pg_env_avg[is.na(pg_env_avg)] <- " "
+avg = data[ ,(names(data) %in% keep)]
+avg = na.omit(avg)
+avg$year = as.factor(avg$year)
+avg$month = as.factor(avg$month)
 
-env$int = paste(env$Population,".",env$Year)
-p = ggplot(env, aes(int, rf)) + geom_point(aes(color = month))
-p 
-model = lmer(atemp ~ Population + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(stemp ~ Population + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rf ~ Population + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rh ~ Population + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
+#random = ~ 1 | rep/subject
+#Indicates that each subject-within-rep unit will have its own intercept
+model =  lmerTest::lmer(as.numeric(st) ~ pop.size + Site + year + (1|month/day2), data = avg)
 
-model = lmer(atemp ~ Pop_size + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(stemp ~ Pop_size + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rf ~ Pop_size + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rh ~ Pop_size + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
+a = anova(model)
+a
 
-model = lmer(atemp ~ Demo + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(stemp ~ Demo + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rf ~ Demo + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rh ~ Demo + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
+a$p.ad = p.adjust(a$`Pr(>F)`, method = "bonferroni")
+a$p.ad
 
-model = lmer(atemp ~ as.factor(Year) + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(stemp ~ as.factor(Year) + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rf ~ as.factor(Year) + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
-model = lmer(rh ~ as.factor(Year) + (1|month),
-             data=env,
-             REML=TRUE)
-anova(model)
+#############################Year
+posthoc <- glht(model, linfct = mcp(Site = "Tukey"))
+summary(posthoc)
+
+cld(posthoc,
+    alpha   = 0.05, 
+    Letters = letters,     ### Use lower-case letters for .group
+    adjust  = "tukey")
+
+#############################Year
+posthoc <- glht(model, linfct = mcp(year = "Tukey"))
+summary(posthoc)
+
+cld(posthoc,
+    alpha   = 0.05, 
+    Letters = letters,     ### Use lower-case letters for .group
+    adjust  = "tukey")
 

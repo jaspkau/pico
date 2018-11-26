@@ -41,7 +41,7 @@ tax2 = tax_table(as.matrix(tax2))
 library(readxl)
 met <- as.data.frame(read_excel("data/met.xlsx", sheet = 1))
 row.names(met) = met$Code
-met$int = paste(met$Population,".",met$Pop_size,".",met$Demo,".", gsub("20", "", met$Year))
+met$int = paste(met$Population,".",gsub("20", "", met$Year))
 met$int = gsub(" ", "", met$int)
 met$pop.year = paste(met$Population, ".", gsub("20", "", met$Year))
 met$pop.year = gsub(" ", "", met$pop.year)

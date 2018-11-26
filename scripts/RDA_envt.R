@@ -12,20 +12,30 @@ library(plyr)
 
 source("scripts/make_phyloseq.R")
 source("scripts/root_phyloseq.R")
-d.an = d_r
-source("scripts/differential_abundance.R")
-an.otus = anc$detected
+source("scripts/soil_phyloseq.R")
 
-d = subset_samples(d, Population %in% c("SCW", "PLF", "PLE", "SCE"))
-d
+d.comb = merge_phyloseq(d_r, d_s)
+d.comb
 
-sample_data(d)$int = paste(sample_data(d)$Source,".",sample_data(d)$Population,".",sample_data(d)$Year)
+sample_data(d.comb)$int = paste(sample_data(d.comb)$Source,".",sample_data(d.comb)$Population,".",sample_data(d.comb)$Year)
 
-d.fin = prune_taxa(taxa_names(d)%in% an.otus, d)
+d.fin = subset_taxa(d.comb, Family == "f:Ceratobasidiaceae"| 
+                      Family == "f:Tulasnellaceae")
 d.fin
 
-#d.fin = prune_taxa(taxa_names(d_r), d)
-#d.fin
+####scale envt data according to above sample selection
+met2 = data.frame(sample_data(d.fin))
+env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,10,11,37,38,39)]
+env = met2[,12:36]
+env = scale(env)
+met3 = merge(env_met, env, by = "row.names")
+row.names(met3) = met3$Row.names
+
+d.fin = merge_phyloseq(tax_table(d.fin), otu_table(d.fin), sample_data(met3))
+
+
+d.fin = subset_samples(d.fin, Population %in% c("SCW", "PLF", "PLE", "SCE"))
+d.fin
 
 # Hierarchial clustering --------------------------------------------------
 

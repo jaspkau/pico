@@ -21,10 +21,19 @@ source("scripts/soil_phyloseq.R")
 d_s
 d_s.all = d_s
 
+d_s = subset_samples(d_s, Pop_size != "Con")
+
+d_s = prune_taxa(taxa_sums(d_s) >= 1, d_s)
+d_s
+
 ####SOIL OMF ANALYSIS WITH OTUs identified important by ANCOM in ROOTS ----------------------------------------------------------------
 
 d_s = prune_taxa(taxa_names(d_s) %in% an.otus, d_s)
 d_s
+
+d_s = subset_samples(d_s, Pop_size == "L"| Pop_size == "S")
+d_s
+
 d_s = prune_taxa(taxa_sums(d_s) >= 1, d_s)
 d_s
 
@@ -56,7 +65,7 @@ bp
 shapiro.test(temp$Simpson)
 
 alpha.kw = c()
-for(i in c(5, 6, 11)){
+for(i in c(5, 10)){
   column = names(temp[i])
   k.demo = kruskal.test(Simpson ~ as.factor(temp[,i]), data = temp)$"p.value"
   results = data.frame(otu = paste(column), pval = as.numeric(paste(k.demo)))
@@ -85,7 +94,7 @@ dist_w = stepacross(dist_w)
 
 ###Weighted distance
 
-a = adonis2(dist_w ~ sample_data(d.bd)$Pop_size + sample_data(d.bd)$Population + sample_data(d.bd)$Year, permutations = 999)
+a = adonis2(dist_w ~ sample_data(d.bd)$Pop_size + sample_data(d.bd)$Population, permutations = 999)
 a
 ###ajust P-values
 p.adjust(a$`Pr(>F)`, method = "bonferroni")
@@ -112,27 +121,15 @@ d.hc = merge_phyloseq(tax2, otu_table(as.matrix(otu3_tab),
 
 #weighted distance analysis
 h = hclust(dist_w_int, method = "average")
-dhc <- as.dendrogram(h)
-nodePar <- list(lab.cex = 1, pch = c(NA, 19), cex = 0.7, col = "blue")
-p = plot(dhc,  xlab = "Weighted Bray-Curtis distance", nodePar = nodePar, horiz = TRUE)
-p
+dhc <- as.dendrogram(h) %>% set("labels_cex", 0.5)
+ggd1 <- as.ggdend(dhc)
 
-d.an = d_s
-ancom.otu = t(data.frame(otu_table(d.an))) ##columns = OTUs and should be counts
-ancom.otu = merge(ancom.otu, sample_data(d.an), by = "row.names")
-row.names(ancom.otu) = ancom.otu$Code
-ancom.otu = ancom.otu[,-1]
-names(ancom.otu)
-##look for the grouping variable you want to use
-ancom.fin = ancom.otu[, grepl("otu", names(ancom.otu))|grepl("Pop_size", names(ancom.otu))]
-
-anc = ANCOM(ancom.fin, sig = 0.05, multcorr = 1)
-anc$detected
-plot_ancom(anc)
+p1 = ggplot(ggd1, horiz = TRUE,theme = theme_minimal())
+p1
 
 otu.hm = merge(t(otu3), tax_table(d.hc), by = "row.names")
 #gen_f = merge(gen_f, sim.kw.popsize, by.x = "Row.names", by.y = "otu")
-otu.hm$rank = paste(as.character(otu.hm$Row.names),"|",substr(otu.hm$Family, 3, 5))
+otu.hm$rank = paste(as.character(otu.hm$Row.names),"-",substr(otu.hm$Family, 3, 5))
 row.names(otu.hm) = otu.hm$rank
 drops <- c("Row.names", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "rank")
 otu.hm = otu.hm[ , !(names(otu.hm) %in% drops)]
@@ -141,9 +138,6 @@ otu.hm = data.frame(t(otu.hm))
 colfunc <- colorRampPalette(c("grey", "black"))
 library(gplots)
 
-g1 = heatmap.2(as.matrix(otu.hm), 
-               Rowv = as.dendrogram(h), margins = c(10, 10), col = colfunc(100), 
-               xlab = "Weighted Bray Curtis dissimilarity distances",
-               trace = "none",
-               cellnote = otu.hm, notecex=0.4,
-               notecol="white")
+g2 = heatmap.2(as.matrix(otu.hm), 
+               Rowv = as.dendrogram(h), margins = c(10, 10), col = colfunc(100),
+               trace = "none")

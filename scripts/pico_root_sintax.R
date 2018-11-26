@@ -1,7 +1,7 @@
 #setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
 #setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico/")
 #source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
-#setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
+#setwd("/Users/administrator/Desktop/pico")
 
 #library(adespatial)  
 library(phyloseq)
@@ -9,6 +9,9 @@ library(ancom.R)
 library(devtools)
 #devtools::install_github("benjjneb/decontam")
 library(decontam)
+library(vegan)
+library(ggdendro)
+library(dendextend)
 
 ###ROOT OMF ANALYSIS......................................
 
@@ -22,6 +25,9 @@ decon.d
 decon
 ####subsetetting for months and scaling of envt data
 d_r
+
+##subsetting for OMF OTUs
+d.romf
 
 droot = tax_glom(d_r, "Kingdom")
 taxa_sums(droot)
@@ -40,10 +46,22 @@ taxa_sums(d.cer)
 
 d_r = prune_taxa(taxa_sums(d_r) >= 1, d_r)
 
+####the sequences of 50 most abundant OTUs
+d_f = data.frame(otu_table(d_r))
+gen_f = t(d_f)
+who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:50]
+d_gf = prune_taxa(taxa_names(d_r) %in% who, d_r)
+taxa_sums(d_gf)
+
+####OTUs represented by <10 sequences
+
+d_gf = prune_taxa(taxa_sums(d_r) < 10, d_r)
+d_gf
+
 # Rarefaction -------------------------------------------------------------
 
-d_rf = merge_samples(d_r, "Population")
-otu_rf = data.frame(otu_table(d_rf))
+d.rf = merge_samples(d_r, "Population")
+otu_rf = data.frame(otu_table(d.rf))
 
 library(iNEXT)
 otu_rc = data.frame(t(otu_rf)) ####columns should be samples
@@ -60,29 +78,37 @@ g1
 # Alpha diversity ---------------------------------------------------------
 
 aldiv = estimate_richness(d_r, measures = c("Shannon", "Simpson"))
-temp = merge(met2, aldiv, by = "row.names")
+temp = merge(met, aldiv, by = "row.names")
 row.names(temp) = temp[,1]
 
-bp <- ggplot(temp, aes(x=Population, y=Simpson)) + 
-  geom_boxplot(aes(fill= "slategray4")) + 
-  labs(x = paste("Site"), 
-       y = paste("Simpson diversity index (H)")) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-bp
+# Once again, effective numbers to the resuce!
+# The conversion of Simpson diversity to effective numbers is 1/1-D
+temp$ef = 1/(1-temp$Simpson)
+
+# The conversion of Shannon diversity to effective numbers is exp(H)
+temp$ef.sha = exp(temp$Shannon)
 
 #####Comparisons with catergorical variables
 
 ####Use shannon diversity index coz simpson is inflating diversity in samples with 0 seqs
-shapiro.test(temp$Simpson)
+shapiro.test(temp$ef.sha)
 
 alpha.kw = c()
-for(i in c(5, 6, 7, 11)){
+for(i in c(6, 7, 11)){
   column = names(temp[i])
-  k.demo = kruskal.test(Simpson ~ as.factor(temp[,i]), data = temp)$"p.value"
+  k.demo = kruskal.test(ef.sha ~ as.factor(temp[,i]), data = temp)$"p.value"
   results = data.frame(otu = paste(column), pval = as.numeric(paste(k.demo)))
   alpha.kw = rbind(alpha.kw, results)
 }
 
 alpha.kw$p.ad = p.adjust(alpha.kw$pval, method = "bonferroni")
+alpha.kw
+
+avg = temp %>%
+  group_by(Pop_size) %>%
+  summarise(simp = mean(ef.sha))
+avg
+
 
 # Beta diversity with bray ------------------------------------------------
 library(vegan)
@@ -96,13 +122,18 @@ rel_otu_code = data.frame(otu_table(d.bd))
 
 dist_w = vegdist(rel_otu_code, method = "bray")
 
+sample_data(d.bd)$int = paste(sample_data(d.bd)$Population, ".", sample_data(d.bd)$Year)
+mod = betadisper(dist_w, sample_data(d.bd)$Year)
+mod = betadisper(dist_w, sample_data(d.bd)$Population)
+anova(mod)
+
 ###PERMANOVA
 
 ###Weighted distance
 
 #permanova with significant factors. 
 
-a = adonis2(dist_w ~ sample_data(d.bd)$Pop_size + sample_data(d.bd)$Population + sample_data(d.bd)$Year + sample_data(d.bd)$Stage, permutations = 999)
+a = adonis2(dist_w ~ sample_data(d.bd)$Pop_size + sample_data(d.bd)$Population + sample_data(d.bd)$Population + sample_data(d.bd)$Stage, permutations = 999)
 a
 
 ###ajust P-values
@@ -128,10 +159,8 @@ d.hc = merge_phyloseq(tax2, otu_table(as.matrix(otu3_tab),
 
 #weighted distance analysis
 h = hclust(dist_w_int, method = "average")
-dhc <- as.dendrogram(h)
-nodePar <- list(lab.cex = 1, pch = c(NA, 19), cex = 0.7, col = "blue")
-p = plot(dhc,  xlab = "Weighted Bray-Curtis distance", nodePar = nodePar, horiz = TRUE)
-p
+dhc <- as.dendrogram(h) %>% set("labels_cex", 0.5)
+ggd1 <- as.ggdend(dhc)
 
 d.an = d_r
 
@@ -170,34 +199,17 @@ d.ra = d_r
 
 source("scripts/relative_abundance_plots.R")
 
-###relative abundances at OTU level
-p.otus
-
 ###relative abundances at family level
-p.fam
+p1 = p.fam
 
-# MRM and varition partioning ---------------------------------------------
+###relative abundances at OTU level
+p2 = p.otus
 
-my.soil = sample_data(d_r)
-names = c("P2", "MN", "SAND", "ZN")
-my.soil2 = my.soil[,names] ####order of rows should be same as community data matrix
+ggpubr::ggarrange(p1, p2, ncol = 1, nrow = 2)
 
-my.env = sample_data(d4)
-names = c("pg.sm2", "dr.st", "pg.st")
-my.env2 = my.env[,names] ####order of rows should be same as community data matrix
 
-soil.otus = gen_f[1:6,] ###need to create soil phyloseq object first
-
-library(ecodist)
-
-MRM(dist_w_py ~ dist(my.env2) + dist(my.soil2) + dist(soil.otus), nperm=1000)
-summary(lm(dist_w_py ~ dist(my.env2) + dist(my.soil2) + dist(soil.otus)))
-
-mrm.env = lm(dist_w_py ~ dist(my.env2))
-summary(mrm.env)$adj.r.squared
-
-mrm.soil = lm(dist_w_int ~ dist(my.soil2))
-summary(mrm.soil)$adj.r.squared
-
-mrm.soil.otus = lm(dist_w_py ~ dist(soil.otus))
-summary(mrm.soil.otus)$adj.r.squared
+library(dplyr)
+gavg <- temp %>% 
+  group_by(Year) %>% 
+  summarise(Dia = mean(Shannon))
+gavg

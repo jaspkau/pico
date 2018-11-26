@@ -12,12 +12,13 @@ d_r
 d_r = prune_taxa(taxa_sums(d_r) >= 1, d_r)
 d_r
 
-####scale envt data according to above sample selection
-met2 = data.frame(sample_data(d_r))
-env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,10,11,38,39)]
-env = met2[,12:37]
-env = scale(env)
-met3 = merge(env_met, env, by = "row.names")
-row.names(met3) = met3$Row.names
-
-d_r = merge_phyloseq(tax_table(d_r), otu_table(d_r), sample_data(met3))
+d.romf = subset_taxa(d_r, Family=="f:Serendipitaceae"| Family=="f:Sebacinaceae"| Family=="f:Thelephoraceae"| 
+                    Family=="f:Ceratobasidiaceae"| Family=="f:Pezizaceae"| Family=="f:Tulasnellaceae"| 
+                    Family=="f:Pyronemataceae"| Family=="f:Tuberaceae"| Family=="f:Agaricaceae"| 
+                    Family=="f:Clavulinaceae"| Family=="f:Corticiaceae"| Family=="f:Inocybaceae"| 
+                    Family=="f:Marasmiaceae"| Family=="f:Russulaceae"| Family=="f:Tricholomataceae"| 
+                    Family=="f:Typhulaceae"| Family=="f:Physalacriaceae"| Family=="f:Psathyrellaceae"|
+                    Family=="f:Hymenogastraceae"| Family=="f:Incertae sedis"| Family=="f:Hydnangiaceae"|
+                      Family=="f:Hymenochaetaceae"| Family=="f:Atheliaceae"| Family=="f:Auriculariaceae"|
+                      Family=="f:Cantharellaceae"| Family=="f:Sclerodermataceae"| Family=="f:Helvellaceae"|
+                      Family=="f:Herpotrichiellaceae"| Family=="f:Nectriaceae")

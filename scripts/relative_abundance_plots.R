@@ -31,7 +31,7 @@ state_col2 = scale_fill_manual(name = "State3", values=c(brewer.pal(n = 5, name 
 library(scales)
 
 p.otus = ggplot(m, aes(sl, fill = variable)) + geom_bar(aes(weight = value)) +
-  theme_bw(base_size = 20) + state_col2 + xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 45, hjust = 0.9, size = 10, color = "black")) +
+  theme_bw(base_size = 20) + state_col2 + xlab("Sample") + ylab("Relative Abundance") + theme(axis.text.x = element_text(angle = 90, hjust = 0.9, size = 10, color = "black")) +
   theme(legend.text = element_text(face = "italic", size = 8)) + guides(fill = guide_legend(ncol = 2, reverse=T, keywidth = 0.5, keyheight = 0.5))+ scale_y_continuous(labels = percent_format())
 p.otus$data$variable = factor(p.otus$data$variable, ordered = TRUE, levels = rev(who))
 p.otus
@@ -58,7 +58,7 @@ gen_f = data.frame(t(gen_f))
 gen_f = gen_f/rowSums(gen_f)
 names(gen_f) = list
 #met$Sample = ordered(met$Sample, levels = c("A", "B", "C", "D", "E", "F", "G"))
-who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:25]
+who = names(sort(colMeans(gen_f), decreasing = TRUE))[1:14]
 f = gen_f[,names(gen_f) %in% who]
 f$Other = 1-rowSums(f)
 who = c(who, "Other")

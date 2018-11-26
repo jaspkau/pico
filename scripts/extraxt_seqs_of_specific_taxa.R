@@ -31,11 +31,11 @@ d.tul
 library(seqinr)
 fas = read.fasta(file = "data/chimera_filtered_rep_set.fasta", forceDNAtolower = FALSE, set.attributes = FALSE)
 fas2 = fas[names(fas) %in% taxa_names(d.tul)]
-write.fasta(sequences=fas2, names= names(fas2) ,file.out="Tul_OTUs.fasta")
+write.fasta(sequences=fas2, names= names(fas2) ,file.out="tul_otus.fasta")
 
 ####Cerato OTUs
 d.cer = subset_taxa(d_r, Family == "f:Ceratobasidiaceae")
 d.cer
 
 fas2 = fas[names(fas) %in% taxa_names(d.cer)]
-write.fasta(sequences=fas2, names= names(fas2) ,file.out="Cer_OTUs.fasta")
+write.fasta(sequences=fas2, names= names(fas2) ,file.out="cer_otus.fasta")

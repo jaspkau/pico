@@ -1,7 +1,7 @@
-#setwd("C://Users//jaspkaur//Google Drive//Metagenomics//pico_comb_run//pico/")
+#setwd("C://Users//jaspkaur//Google Drive//Metagenomics//oab/")
 #setwd("C:/Users/jas/Google Drive/Metagenomics/pico_comb_run/pico/")
-#source("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/packages.r")
-#setwd("/Users/administrator/Documents/jaspreet/pico/pico_comb_run/pico")
+#setwd("/Users/administrator/Documents/jaspreet/pico/pico/")
+#setwd("/Users/administrator/Desktop/oab")
 
 #https://www.molecularecologist.com/2017/02/phylogenetic-trees-in-r-using-ggtree/library("ape")
 library("Biostrings")
@@ -15,7 +15,7 @@ library(ggtree)
 #https://bioconductor.org/packages/devel/bioc/vignettes/ggtree/inst/doc/ggtree.html
 #https://guangchuangyu.github.io/presentation/2016-ggtree-chinar/
 
-x = read.mrbayes("results/phylo/tul_bayes/tul_otus_aln_trim.nexusi.con.tre")
+x = read.mrbayes("results/phylo/root_soil/cer_raxml/RAxML_bipartitions.bootFinal")
 #x = read.raxml("results/phylo/tul_raxml/RAxML_bipartitionsBranchLabels.bootFinal")
 
 ###for mrbayes
@@ -29,52 +29,87 @@ tree = ggtree(x, color="black", size=1, linetype="dotted") + geom_tiplab(size=3,
 
 ###for raxml 
 
-x = read.raxml("results/phylo/tul_raxml/RAxML_bipartitionsBranchLabels.bootFinal")
+x = read.raxml("results/phylo/root_soil/tul_raxml/RAxML_bipartitionsBranchLabels.bootFinal")
 tree = ggtree(x, color="black", size=1, linetype="dotted") + geom_tiplab(size=3, color="black") +
   geom_nodelab(aes(x=branch, label=bootstrap, vjust=-.5, size=3))
 
-x = read.raxml("results/phylo/cer_raxml/RAxML_bipartitionsBranchLabels.bootFinal")
-tree = ggtree(x, color="black", size=1, linetype="dotted") + geom_tiplab(size=3, color="black") +
-  geom_nodelab(aes(x=branch, label=bootstrap, vjust=-.5, size=3))
+###remove the <50 bootstraps
+tree$data$bootstrap = ifelse(tree$data$bootstrap < 50, paste(""), tree$data$bootstrap)
 
 ###import associated matrix
 
 library(phyloseq)
+library(reshape2)
+library(readxl)
+library(devtools)
 #devtools::install_github("benjjneb/decontam")
 library(decontam)
+library(vegan)
+
+#########read phyloseq object
 
 source("scripts/make_phyloseq.R")
 source("scripts/root_phyloseq.R")
+source("scripts/soil_phyloseq.R")
 
-d
-###subset root samples
-decon.d
-#decontamination
-decon
-####subsetetting for months and scaling of envt data
-d_r
+d.comb = merge_phyloseq(d_r, d_s)
+d.comb
+
+sample_data(d.comb)$int = paste(sample_data(d.comb)$Source,".",sample_data(d.comb)$Population,".",sample_data(d.comb)$Year)
+
+d.fin = subset_taxa(d.comb, Family == "f:Ceratobasidiaceae"| 
+                      Family == "f:Tulasnellaceae")
+d.fin
+
+####scale envt data according to above sample selection
+met2 = data.frame(sample_data(d.fin))
+env_met = met2[,cbind(1,2,3,4,5,6,7,8,9,10,11,37,38,39)]
+env = met2[,12:36]
+env = scale(env)
+met3 = merge(env_met, env, by = "row.names")
+row.names(met3) = met3$Row.names
+
+d.fin = merge_phyloseq(tax_table(d.fin), otu_table(d.fin), sample_data(met3))
+
+taxa_names(d.fin) = gsub("otu", "denovo", taxa_names(d.fin))
+
+sample_data(d.fin)$int = paste(sample_data(d.fin)$Source,".",sample_data(d.fin)$Pop_size)
+sample_data(d.fin)$int = gsub(" ", "", sample_data(d.fin)$int)
+
 ##merge samples
-dpop = merge_samples(d_r, "Population")
+dpop = merge_samples(d.fin, "int")
 
+####for abudance based associated matrix
 otu = data.frame(t(otu_table(dpop)))
 row.names(otu) = gsub("otu", "denovo", row.names(otu))
+
+otu2 = as.data.frame(t(otu))
+otu2 = as.data.frame(t(decostand(otu2, method = "hellinger")))
+
 ##make binary matrix
 otu2 = as.data.frame(ifelse(otu == 0, 0, 1))
+###
 
-tree = ggtree(x, color="black", size=1, linetype="dotted") + geom_tiplab(size=3, color="black") +
-  geom_nodelab(aes(x=branch, label = round(as.numeric(prob), 2), vjust=-.5, hjust = 0.5, size=0.5))
+tree = ggtree(x, color="black", size=0.7) + geom_tiplab(size=3, color="black") +
+  geom_nodelab(aes(x=branch, label = bootstrap), vjust=-.5, hjust = 0.5, size=3)
 
-g = gheatmap(tree, otu2, offset = 0.5, width=0.5, font.size=3, colnames_angle=-45, hjust = 1, 
-             low = "grey", high = "black")
+tree$data$bootstrap = ifelse(tree$data$bootstrap < 50, paste(""), tree$data$bootstrap)
+
+g = gheatmap(tree, otu2, offset = 0.0, width=0.5, font.size=3, colnames_angle=-45, hjust = 0, 
+             low = "grey97", high = "black")
+g
+
+g = gheatmap(tree, otu2, offset = 0.0, width=0.5, font.size=3, colnames_angle=-45, hjust = 0, 
+             low = "red3", high = "limegreen")
 g
 
 ##missleneaous
 
 ggtree(x) +
   geom_label(mapping = aes(label = node), size = 2)
-
+get
 exp = ggtree(x, aes(color=branch.length), size=1, linetype="dotted") + geom_tiplab(size=3, color="black") +
-  geom_nodelab(aes(x=branch, label = round(as.numeric(prob), 2), vjust=-.5, hjust = 0.5, size=0.5)) +
+  geom_nodelab(aes(x=branch, label = round(as.numeric(prob), 2), vjust=-.5, hjust = 0.8, size=0.5)) +
   theme(legend.position="bottom")
 
 cp = collapse(exp, node = 183)
